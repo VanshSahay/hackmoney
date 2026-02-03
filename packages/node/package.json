@@ -1,0 +1,14 @@
+{
+  "name": "@hackmoney/node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": { "build": "pnpm exec tsc", "dev": "ts-node-dev src/index.ts" },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.24.0",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
