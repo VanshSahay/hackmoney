@@ -1,4 +1,4 @@
-# MPC-Based Order Splitting Server
+# VeilSwap Node
 
 Privacy-preserving order splitting across a network of self-custodial servers using Secure Multi-Party Computation (MPC).
 

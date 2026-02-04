@@ -1,5 +1,5 @@
 {
-  "name": "@hackmoney/node",
+  "name": "@veilswap/node",
   "version": "0.0.1",
   "description": "MPC-based order splitting server for privacy-preserving DEX liquidity",
   "type": "module",

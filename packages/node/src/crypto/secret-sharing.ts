@@ -6,6 +6,9 @@
 import { FIELD_PRIME, fieldAdd, fieldSub, mod, randomFieldElement } from './field.js';
 import type { Share, SecretValue, ReplicatedShares } from '../types.js';
 
+// Re-export types for convenience
+export type { ReplicatedShares } from '../types.js';
+
 /**
  * 3-Party Replicated Secret Sharing
  * 
