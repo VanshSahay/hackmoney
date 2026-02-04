@@ -14,6 +14,34 @@ import type {
 
 export type MessageHandler = (message: P2PMessage) => void | Promise<void>;
 
+const BIGINT_SENTINEL = '__mpc_bigint__';
+
+const bigIntReplacer = (_key: string, value: unknown): unknown => {
+  if (typeof value === 'bigint') {
+    return { [BIGINT_SENTINEL]: value.toString() };
+  }
+  return value;
+};
+
+const bigIntReviver = (_key: string, value: unknown): unknown => {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (
+      Object.keys(record).length === 1 &&
+      typeof record[BIGINT_SENTINEL] === 'string'
+    ) {
+      return BigInt(record[BIGINT_SENTINEL] as string);
+    }
+  }
+  return value;
+};
+
+const serializeMessage = (message: P2PMessage): string =>
+  JSON.stringify(message, bigIntReplacer);
+
+const deserializeMessage = (data: Buffer): P2PMessage =>
+  JSON.parse(data.toString(), bigIntReviver) as P2PMessage;
+
 /**
  * P2P Network Manager
  * Manages connections to other MPC parties
@@ -82,7 +110,7 @@ export class P2PNetwork {
         // Handle incoming messages
         ws.on('message', async (data: Buffer) => {
           try {
-            const message = JSON.parse(data.toString()) as P2PMessage;
+            const message = deserializeMessage(data);
             await this.handleIncomingMessage(message, ws);
           } catch (error) {
             console.error('Error handling message:', error);
@@ -146,7 +174,7 @@ export class P2PNetwork {
       
       ws.on('message', async (data: Buffer) => {
         try {
-          const message = JSON.parse(data.toString()) as P2PMessage;
+          const message = deserializeMessage(data);
           await this.handleIncomingMessage(message, ws);
         } catch (error) {
           console.error(`Error handling message from party ${partyId}:`, error);
@@ -228,7 +256,7 @@ export class P2PNetwork {
     };
     
     return new Promise((resolve, reject) => {
-      ws.send(JSON.stringify(fullMessage), (error) => {
+      ws.send(serializeMessage(fullMessage), (error) => {
         if (error) {
           console.error(`Error sending message to party ${partyId}:`, error);
           reject(error);
