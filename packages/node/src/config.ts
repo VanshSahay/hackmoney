@@ -72,7 +72,7 @@ export function loadConfig(): Config {
 
 /**
  * Load peer configuration
- * Expects PEER_0_ADDRESS, PEER_0_PORT, etc.
+ * Expects PEER_0_ADDRESS, PEER_0_PORT, PEER_0_BLOCKCHAIN_ADDRESS, etc.
  */
 function loadPeerConfig(
   numParties: number,
@@ -84,7 +84,7 @@ function loadPeerConfig(
   
   for (let i = 0; i < numParties; i++) {
     if (i === myPartyId) {
-      // Add self
+      // Add self - blockchain address will be derived from private key
       peers.push({
         id: i,
         address: myAddress,
@@ -94,11 +94,13 @@ function loadPeerConfig(
       // Load peer from env
       const peerAddress = getEnv(`PEER_${i}_ADDRESS`, 'localhost');
       const peerPort = getEnvNumber(`PEER_${i}_PORT`, 3000 + i);
+      const blockchainAddress = process.env[`PEER_${i}_BLOCKCHAIN_ADDRESS`];
       
       peers.push({
         id: i,
         address: peerAddress,
         port: peerPort,
+        blockchainAddress,
       });
     }
   }
@@ -121,7 +123,8 @@ function loadInitialCapacities(): Map<string, bigint> {
     if (process.env[tokenKey] && process.env[amountKey]) {
       const token = process.env[tokenKey];
       const amount = BigInt(process.env[amountKey]);
-      capacities.set(token, amount);
+      // Normalize address to lowercase for case-insensitive lookups
+      capacities.set(token.toLowerCase(), amount);
     }
   }
   

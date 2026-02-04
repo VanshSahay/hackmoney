@@ -158,19 +158,23 @@ export class MPCServer {
    * Set server capacity for a token
    */
   setCapacity(tokenAddress: string, amount: bigint): void {
-    this.capacities.set(tokenAddress, {
-      tokenAddress,
+    // Normalize address to lowercase for case-insensitive lookups
+    const normalizedAddress = tokenAddress.toLowerCase();
+    this.capacities.set(normalizedAddress, {
+      tokenAddress: normalizedAddress,
       amount,
       lastUpdated: Date.now(),
     });
-    console.log(`Set capacity for ${tokenAddress}: ${amount}`);
+    console.log(`Set capacity for ${normalizedAddress}: ${amount}`);
   }
   
   /**
    * Get server capacity for a token
    */
   getCapacity(tokenAddress: string): bigint {
-    const capacity = this.capacities.get(tokenAddress);
+    // Normalize address to lowercase for case-insensitive lookups
+    const normalizedAddress = tokenAddress.toLowerCase();
+    const capacity = this.capacities.get(normalizedAddress);
     return capacity ? capacity.amount : 0n;
   }
   
