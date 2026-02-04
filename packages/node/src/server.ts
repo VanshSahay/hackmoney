@@ -30,6 +30,7 @@ import {
 } from './crypto/secret-sharing.js';
 import { FIELD_PRIME } from './crypto/field.js';
 import type { Address, Hash } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 /**
  * MPC Server Configuration
@@ -72,6 +73,9 @@ export class MPCServer {
   constructor(config: MPCServerConfig) {
     this.config = config;
     
+    // Build party address mapping from config
+    const partyAddresses = this.buildPartyAddresses(config.allParties, config.privateKey);
+    
     // Initialize components
     this.sessionManager = new MPCSessionManager(config.partyId);
     this.protocols = new MPCProtocols(config.partyId, config.allParties.length);
@@ -85,11 +89,41 @@ export class MPCServer {
       config.rpcUrl,
       config.privateKey,
       config.settlementAddress,
+      partyAddresses,
       config.chainId
     );
     
     this.setupMessageHandlers();
     this.setupEventHandlers();
+  }
+  
+  /**
+   * Build mapping of party IDs to blockchain addresses
+   */
+  private buildPartyAddresses(
+    allParties: PartyConfig[],
+    myPrivateKey: Hash
+  ): Map<number, Address> {
+    const addresses = new Map<number, Address>();
+    
+    for (const party of allParties) {
+      if (party.id === this.config.partyId) {
+        // For self, derive address from private key
+        const account = privateKeyToAccount(myPrivateKey);
+        addresses.set(party.id, account.address);
+      } else {
+        // For other parties, use configured blockchain address
+        if (!party.blockchainAddress) {
+          throw new Error(
+            `Missing blockchain address for party ${party.id}. ` +
+            `Please set PEER_${party.id}_BLOCKCHAIN_ADDRESS in environment variables.`
+          );
+        }
+        addresses.set(party.id, party.blockchainAddress as Address);
+      }
+    }
+    
+    return addresses;
   }
   
   /**
@@ -412,10 +446,9 @@ export class MPCServer {
     intentId: IntentId,
     myShares: ReplicatedShares
   ): Promise<ReplicatedShares[]> {
-    // Initialize storage for this intent
-    if (!this.receivedShares.has(intentId)) {
-      this.receivedShares.set(intentId, new Map());
-    }
+    // Clear any previous shares for this intent to avoid reusing capacity shares
+    // The capacity shares have already been stored in the session manager
+    this.receivedShares.set(intentId, new Map());
     
     // Broadcast my shares
     for (let partyId = 0; partyId < this.config.allParties.length; partyId++) {
