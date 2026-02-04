@@ -25,6 +25,7 @@ import {
   secretShare3Party,
   getPartyShares,
   addShares,
+  reconstructFromTwoParties,
   type ThreePartyShares,
 } from './crypto/secret-sharing.js';
 import { FIELD_PRIME } from './crypto/field.js';
@@ -480,15 +481,37 @@ export class MPCServer {
   
   /**
    * Reconstruct a value with other parties
+   * For 3-party RSS, we need shares from at least one other party to get all 3 unique shares
    */
   private async reconstructValue(
     intentId: IntentId,
     variable: string,
     myShares: ReplicatedShares
   ): Promise<bigint> {
-    // For 3-party RSS, we already have the shares we need
-    // This is a simplified reconstruction
-    return myShares.share1 + myShares.share2; // Placeholder
+    // Request shares from the next party in the ring
+    const nextParty = (this.config.partyId + 1) % this.config.allParties.length;
+    
+    console.log(`Requesting shares for ${variable} from party ${nextParty}`);
+    
+    // Send reconstruction request
+    await this.network.sendToParty(
+      nextParty,
+      MessageBuilder.reconstructionRequest(intentId, nextParty, variable)
+    );
+    
+    // Wait for response
+    const otherPartyShares = await this.waitForReconstructionResponse(intentId, variable, nextParty);
+    
+    // Reconstruct using shares from both parties
+    const reconstructed = reconstructFromTwoParties(
+      myShares,
+      otherPartyShares,
+      this.config.partyId,
+      nextParty
+    );
+    
+    console.log(`Reconstructed ${variable}: ${reconstructed}`);
+    return reconstructed;
   }
   
   /**
