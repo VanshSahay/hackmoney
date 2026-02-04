@@ -187,12 +187,29 @@ export class P2PNetwork {
   
   /**
    * Register a message handler
+   * Returns a function to unsubscribe the handler
    */
-  onMessage(type: MessageType, handler: MessageHandler): void {
+  onMessage(type: MessageType, handler: MessageHandler): () => void {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, []);
     }
     this.messageHandlers.get(type)!.push(handler);
+    
+    // Return unsubscribe function
+    return () => this.removeHandler(type, handler);
+  }
+  
+  /**
+   * Remove a specific message handler
+   */
+  private removeHandler(type: MessageType, handler: MessageHandler): void {
+    const handlers = this.messageHandlers.get(type);
+    if (!handlers) return;
+    
+    const index = handlers.indexOf(handler);
+    if (index !== -1) {
+      handlers.splice(index, 1);
+    }
   }
   
   /**
@@ -246,7 +263,17 @@ export class P2PNetwork {
     variableName: string
   ): Promise<ReplicatedShares> {
     return new Promise((resolve, reject) => {
+      let unsubscribe: (() => void) | null = null;
+      
+      const cleanup = () => {
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+      };
+      
       const timeout = setTimeout(() => {
+        cleanup();
         reject(new Error(`Timeout waiting for shares from party ${partyId}`));
       }, 10000);
       
@@ -258,11 +285,12 @@ export class P2PNetwork {
           message.payload.variable === variableName
         ) {
           clearTimeout(timeout);
+          cleanup();
           resolve(message.payload.shares);
         }
       };
       
-      this.onMessage('RECONSTRUCTION_RESPONSE' as MessageType, handler);
+      unsubscribe = this.onMessage('RECONSTRUCTION_RESPONSE' as MessageType, handler);
       
       // Send request
       this.sendToParty(partyId, {
@@ -270,7 +298,10 @@ export class P2PNetwork {
         to: partyId,
         sessionId,
         payload: { variable: variableName },
-      }).catch(reject);
+      }).catch((error) => {
+        cleanup();
+        reject(error);
+      });
     });
   }
   
