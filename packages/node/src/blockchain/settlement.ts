@@ -105,10 +105,30 @@ export class SettlementManager {
       throw new Error('Mismatch between allocations and signatures');
     }
     
+    // Create a map of signatures by party ID for correct pairing
+    const signaturesByParty = new Map<number, SettlementSignature>();
+    for (const sig of signatures) {
+      signaturesByParty.set(sig.partyId, sig);
+    }
+    
+    // Pair each allocation with its corresponding signature by party ID
+    const paired = allocations.map((alloc) => {
+      const sig = signaturesByParty.get(alloc.partyId);
+      if (!sig) {
+        throw new Error(`Missing signature for party ${alloc.partyId}`);
+      }
+      // Verify signature matches allocation
+      if (sig.amount !== alloc.amount) {
+        throw new Error(
+          `Signature amount mismatch for party ${alloc.partyId}: ` +
+          `allocation=${alloc.amount}, signature=${sig.amount}`
+        );
+      }
+      return { alloc, sig };
+    });
+    
     // Sort by party ID to ensure consistent ordering
-    const sorted = allocations
-      .map((alloc, i) => ({ alloc, sig: signatures[i] }))
-      .sort((a, b) => a.alloc.partyId - b.alloc.partyId);
+    const sorted = paired.sort((a, b) => a.alloc.partyId - b.alloc.partyId);
     
     const servers: Address[] = sorted.map((s) => 
       this.getServerAddress(s.alloc.partyId)
@@ -211,9 +231,23 @@ export class SettlementManager {
     allocations: Allocation[],
     signatures: SettlementSignature[]
   ): Promise<bigint> {
-    const sorted = allocations
-      .map((alloc, i) => ({ alloc, sig: signatures[i] }))
-      .sort((a, b) => a.alloc.partyId - b.alloc.partyId);
+    // Create a map of signatures by party ID for correct pairing
+    const signaturesByParty = new Map<number, SettlementSignature>();
+    for (const sig of signatures) {
+      signaturesByParty.set(sig.partyId, sig);
+    }
+    
+    // Pair each allocation with its corresponding signature by party ID
+    const paired = allocations.map((alloc) => {
+      const sig = signaturesByParty.get(alloc.partyId);
+      if (!sig) {
+        throw new Error(`Missing signature for party ${alloc.partyId}`);
+      }
+      return { alloc, sig };
+    });
+    
+    // Sort by party ID to ensure consistent ordering
+    const sorted = paired.sort((a, b) => a.alloc.partyId - b.alloc.partyId);
     
     const servers: Address[] = sorted.map((s) =>
       this.getServerAddress(s.alloc.partyId)

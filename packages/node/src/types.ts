@@ -110,7 +110,7 @@ export interface P2PMessage {
 export interface ShareDistributionPayload {
   intentId: IntentId;
   shares: {
-    [partyId: number]: Share;
+    [partyId: number]: ReplicatedShares;
   };
 }
 

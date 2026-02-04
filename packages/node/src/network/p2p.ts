@@ -328,7 +328,7 @@ export class MessageBuilder {
     sessionId: string,
     to: PartyId,
     intentId: string,
-    shares: { [partyId: number]: bigint }
+    shares: { [partyId: number]: ReplicatedShares }
   ): Omit<P2PMessage, 'from' | 'timestamp'> {
     return {
       type: 'SHARE_DISTRIBUTION' as MessageType,

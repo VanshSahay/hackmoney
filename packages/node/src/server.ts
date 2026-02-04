@@ -346,7 +346,7 @@ export class MPCServer {
           partyId,
           intentId,
           {
-            [this.config.partyId]: partyShares.share1,
+            [this.config.partyId]: partyShares,
           }
         )
       );
@@ -367,13 +367,9 @@ export class MPCServer {
       this.receivedShares.set(intentId, new Map());
     }
     
-    const share1 = shares[this.config.partyId];
-    // In replicated SS, we need both shares for this party
-    // For simplicity, we store what we receive
-    this.receivedShares.get(intentId)!.set(fromParty, {
-      share1,
-      share2: share1, // Placeholder
-    });
+    const receivedShares = shares[this.config.partyId];
+    // In replicated SS, we receive both shares that this party should hold
+    this.receivedShares.get(intentId)!.set(fromParty, receivedShares);
     
     // Store in session
     const session = this.sessionManager.getSessionByIntent(intentId);
@@ -381,7 +377,7 @@ export class MPCServer {
       this.sessionManager.storeShares(
         session.id,
         `capacity_${fromParty}`,
-        { share1, share2: share1 }
+        receivedShares
       );
     }
   }
@@ -412,6 +408,11 @@ export class MPCServer {
     intentId: IntentId,
     myShares: ReplicatedShares
   ): Promise<ReplicatedShares[]> {
+    // Initialize storage for this intent
+    if (!this.receivedShares.has(intentId)) {
+      this.receivedShares.set(intentId, new Map());
+    }
+    
     // Broadcast my shares
     for (let partyId = 0; partyId < this.config.allParties.length; partyId++) {
       if (partyId === this.config.partyId) continue;
@@ -427,16 +428,54 @@ export class MPCServer {
       );
     }
     
-    // Collect shares from others (simplified)
-    return [];
+    // Wait for shares from all other parties
+    const expectedParties = this.config.allParties.length - 1; // Exclude self
+    const timeout = 30000; // 30 seconds
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeout) {
+      const intentShares = this.receivedShares.get(intentId)!;
+      
+      // Check if we have all shares
+      if (intentShares.size >= expectedParties) {
+        // Collect shares from all other parties
+        const collectedShares: ReplicatedShares[] = [];
+        for (let partyId = 0; partyId < this.config.allParties.length; partyId++) {
+          if (partyId === this.config.partyId) continue;
+          
+          const shares = intentShares.get(partyId);
+          if (shares) {
+            collectedShares.push(shares);
+          }
+        }
+        
+        return collectedShares;
+      }
+      
+      // Wait a bit before checking again
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    
+    throw new Error(`Timeout waiting for shares from other parties for intent ${intentId}`);
   }
   
   /**
    * Handle computation round message
    */
   private async handleComputationRound(msg: P2PMessage): Promise<void> {
-    // Simplified - would store computation round data
-    console.log(`Received computation round ${msg.payload.round} from party ${msg.from}`);
+    const intentId = msg.sessionId as IntentId;
+    const fromParty = msg.from;
+    const { shares } = msg.payload.data;
+    
+    console.log(`Received computation round ${msg.payload.round} from party ${fromParty}`);
+    
+    // Store received shares
+    if (!this.receivedShares.has(intentId)) {
+      this.receivedShares.set(intentId, new Map());
+    }
+    
+    const intentShares = this.receivedShares.get(intentId)!;
+    intentShares.set(fromParty, shares);
   }
   
   /**
