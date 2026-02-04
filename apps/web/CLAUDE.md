@@ -60,7 +60,8 @@ No test runner is configured yet. When tests are added, expect `pnpm test` to be
 - **Styling**: Tailwind CSS v4 with `@tailwindcss/postcss` plugin. Theme is configured inline in `app/globals.css` using `@theme inline` with CSS custom properties. No separate `tailwind.config.js`.
 - **Dark mode**: Via `prefers-color-scheme` media query and CSS variables in `globals.css`.
 - **ESLint**: Flat config format (ESLint 9+) in `eslint.config.mjs`.
-- **shadcn/ui**: Components will live under `components/ui/`. Uses the `npx shadcn@latest add <component>` CLI to add components.
+- **shadcn/ui**: Components live under `components/ui/`. Uses `npx shadcn@latest add <component>` CLI.
+- **Web3 stack**: Wagmi v2 + Viem + TanStack Query. SSR-safe via cookie storage (`config/wagmi.ts`). `Web3Provider` in `providers/web3-provider.tsx` wraps app in root layout with `cookieToInitialState`. Server-side on-chain reads use `lib/viem.ts` (separate server-only RPC env vars without `NEXT_PUBLIC_` prefix).
 
 ## Monorepo Context
 
@@ -73,4 +74,5 @@ No test runner is configured yet. When tests are added, expect `pnpm test` to be
 - TypeScript strict mode is enabled.
 - Use `next/image` for all images.
 - Tailwind utility classes for styling; no CSS modules.
-- Environment variables go in `.env.local` (gitignored). No `.env.example` exists yet — create one when env vars are introduced.
+- Environment variables go in `.env.local` (gitignored). See `.env.example` for required vars.
+- Client-side RPCs use `NEXT_PUBLIC_RPC_*`; server-side use `RPC_*` (no prefix). Both fall back to public RPCs if unset.

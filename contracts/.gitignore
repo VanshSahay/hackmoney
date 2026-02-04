@@ -14,4 +14,4 @@ docs/
 .env
 
 lib/
-
+.claude/
