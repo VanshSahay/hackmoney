@@ -297,6 +297,7 @@ export class MPCServer {
       if (!sufficient) {
         console.log('Insufficient capacity, aborting...');
         this.sessionManager.updateSessionStatus(session.id, 'failed');
+        this.cleanupIntentState(intent.id);
         return;
       }
       
@@ -354,13 +355,21 @@ export class MPCServer {
       if (this.config.partyId === 0) {
         console.log('Step 10: Submitting settlement (I am leader)...');
         await this.submitSettlement(intent.id, allocations);
+      } else {
+        console.log('Step 10: Waiting for leader to submit settlement...');
+        // Non-leader parties don't submit, but still need to clean up
       }
+      
+      // Cleanup state for all parties
+      this.cleanupIntentState(intent.id);
       
       this.sessionManager.updateSessionStatus(session.id, 'completed');
       console.log('=== MPC Protocol Complete ===\n');
       
     } catch (error) {
       console.error('Error in MPC protocol:', error);
+      // Cleanup state even on error to prevent memory leaks
+      this.cleanupIntentState(intent.id);
     }
   }
   
@@ -693,6 +702,19 @@ export class MPCServer {
   }
   
   /**
+   * Cleanup state for a completed intent
+   * Called by all parties to prevent memory leaks
+   */
+  private cleanupIntentState(intentId: IntentId): void {
+    this.activeIntents.delete(intentId);
+    this.pendingAllocations.delete(intentId);
+    this.pendingSignatures.delete(intentId);
+    this.receivedShares.delete(intentId);
+    this.reconstructionResponses.delete(intentId);
+    console.log(`Cleaned up state for intent ${intentId}`);
+  }
+  
+  /**
    * Submit settlement to blockchain
    */
   private async submitSettlement(intentId: IntentId, allocations: Allocation[]): Promise<void> {
@@ -708,12 +730,6 @@ export class MPCServer {
         signatures
       );
       console.log(`Settlement submitted: ${hash}`);
-      
-      // Cleanup
-      this.activeIntents.delete(intentId);
-      this.pendingAllocations.delete(intentId);
-      this.pendingSignatures.delete(intentId);
-      this.receivedShares.delete(intentId);
       
     } catch (error) {
       console.error('Error submitting settlement:', error);
