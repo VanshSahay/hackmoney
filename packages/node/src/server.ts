@@ -254,6 +254,19 @@ export class MPCServer {
       const session = this.sessionManager.createSession(intent.id, parties);
       this.sessionManager.updateSessionStatus(session.id, 'sharing');
       
+      // Transfer any pre-existing shares from receivedShares to session manager
+      // This handles shares that arrived before session creation
+      const preExistingShares = this.receivedShares.get(intent.id);
+      if (preExistingShares) {
+        for (const [fromParty, shares] of preExistingShares.entries()) {
+          this.sessionManager.storeShares(
+            session.id,
+            `capacity_${fromParty}`,
+            shares
+          );
+        }
+      }
+      
       // Step 1: Secret share my capacity
       console.log('Step 1: Secret sharing capacity...');
       const allShares = secretShare3Party(myCapacity, FIELD_PRIME);
