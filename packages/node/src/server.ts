@@ -372,6 +372,13 @@ export class MPCServer {
       
     } catch (error) {
       console.error('Error in MPC protocol:', error);
+      
+      // Update session status to 'failed' to allow proper cleanup
+      const session = this.sessionManager.getSessionByIntent(intent.id);
+      if (session) {
+        this.sessionManager.updateSessionStatus(session.id, 'failed');
+      }
+      
       // Cleanup state even on error to prevent memory leaks
       this.cleanupIntentState(intent.id);
     }
