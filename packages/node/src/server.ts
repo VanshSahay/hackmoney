@@ -67,8 +67,8 @@ export class MPCServer {
   // Received shares from other parties (per intent)
   private receivedShares: Map<IntentId, Map<PartyId, ReplicatedShares>> = new Map();
   
-  // Reconstruction responses: intentId -> variable -> partyId -> shares
-  private reconstructionResponses: Map<IntentId, Map<string, Map<PartyId, ReplicatedShares>>> = new Map();
+  // Reconstruction responses: sessionId -> variable -> partyId -> shares
+  private reconstructionResponses: Map<string, Map<string, Map<PartyId, ReplicatedShares>>> = new Map();
   
   constructor(config: MPCServerConfig) {
     this.config = config;
@@ -554,8 +554,8 @@ export class MPCServer {
       MessageBuilder.reconstructionRequest(session.id, nextParty, variable)
     );
     
-    // Wait for response
-    const otherPartyShares = await this.waitForReconstructionResponse(intentId, variable, nextParty);
+    // Wait for response - use session.id to match the key used in storage
+    const otherPartyShares = await this.waitForReconstructionResponse(session.id, variable, nextParty);
     
     // Reconstruct using shares from both parties
     const reconstructed = reconstructFromTwoParties(
@@ -591,23 +591,23 @@ export class MPCServer {
    * Handle reconstruction response
    */
   private async handleReconstructionResponse(msg: P2PMessage): Promise<void> {
-    const intentId = msg.sessionId as IntentId;
+    const sessionId = msg.sessionId;
     const { variable, shares } = msg.payload;
     
     console.log(`Received reconstruction response for ${variable} from party ${msg.from}`);
     
     // Initialize maps if needed
-    if (!this.reconstructionResponses.has(intentId)) {
-      this.reconstructionResponses.set(intentId, new Map());
+    if (!this.reconstructionResponses.has(sessionId)) {
+      this.reconstructionResponses.set(sessionId, new Map());
     }
     
-    const intentMap = this.reconstructionResponses.get(intentId)!;
-    if (!intentMap.has(variable)) {
-      intentMap.set(variable, new Map());
+    const sessionMap = this.reconstructionResponses.get(sessionId)!;
+    if (!sessionMap.has(variable)) {
+      sessionMap.set(variable, new Map());
     }
     
     // Store the shares
-    const variableMap = intentMap.get(variable)!;
+    const variableMap = sessionMap.get(variable)!;
     variableMap.set(msg.from, shares);
   }
   
@@ -615,7 +615,7 @@ export class MPCServer {
    * Wait for reconstruction response from a specific party
    */
   private async waitForReconstructionResponse(
-    intentId: IntentId,
+    sessionId: string,
     variable: string,
     fromParty: PartyId
   ): Promise<ReplicatedShares> {
@@ -623,9 +623,9 @@ export class MPCServer {
     const startTime = Date.now();
     
     while (Date.now() - startTime < timeout) {
-      const intentMap = this.reconstructionResponses.get(intentId);
-      if (intentMap) {
-        const variableMap = intentMap.get(variable);
+      const sessionMap = this.reconstructionResponses.get(sessionId);
+      if (sessionMap) {
+        const variableMap = sessionMap.get(variable);
         if (variableMap) {
           const shares = variableMap.get(fromParty);
           if (shares) {
@@ -714,7 +714,15 @@ export class MPCServer {
     this.pendingAllocations.delete(intentId);
     this.pendingSignatures.delete(intentId);
     this.receivedShares.delete(intentId);
-    this.reconstructionResponses.delete(intentId);
+    
+    // Delete all reconstruction responses for sessions related to this intent
+    // Session IDs have format: ${intentId}-${random}
+    for (const sessionId of this.reconstructionResponses.keys()) {
+      if (sessionId.startsWith(intentId)) {
+        this.reconstructionResponses.delete(sessionId);
+      }
+    }
+    
     console.log(`Cleaned up state for intent ${intentId}`);
   }
   

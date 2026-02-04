@@ -38,14 +38,17 @@ export class SettlementManager {
   private account: PrivateKeyAccount;
   private settlementAddress: Address;
   private chain: Chain;
+  private partyAddresses: Map<number, Address>;
   
   constructor(
     rpcUrl: string,
     privateKey: Hash,
     settlementAddress: Address,
+    partyAddresses: Map<number, Address>,
     chainId: number = 1
   ) {
     this.account = privateKeyToAccount(privateKey);
+    this.partyAddresses = partyAddresses;
     
     // Select chain based on chainId
     this.chain = this.getChain(chainId);
@@ -216,11 +219,13 @@ export class SettlementManager {
   
   /**
    * Get server address for a party ID
-   * In production, this would come from configuration or registry
    */
   private getServerAddress(partyId: number): Address {
-    // Placeholder - should be looked up from config
-    return this.account.address;
+    const address = this.partyAddresses.get(partyId);
+    if (!address) {
+      throw new Error(`No blockchain address configured for party ${partyId}`);
+    }
+    return address;
   }
   
   /**

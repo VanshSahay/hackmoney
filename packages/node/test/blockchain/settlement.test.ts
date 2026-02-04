@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { Allocation, SettlementSignature, IntentId } from '../../src/types.js';
+import type { Address } from 'viem';
 
 /**
  * Test that allocation-signature pairing is done by partyId, not by array index
@@ -230,5 +231,104 @@ describe('Settlement - Allocation/Signature Pairing', () => {
     expect(buggyPaired[2].sig.partyId).toBe(1); // WRONG! Party 2's alloc paired with party 1's sig
     
     // This would cause on-chain verification to fail!
+  });
+});
+
+/**
+ * Test that server addresses are correctly mapped by party ID
+ */
+describe('Settlement - Server Address Mapping', () => {
+  
+  it('should return different blockchain addresses for different parties', () => {
+    // Simulate the party addresses map
+    const partyAddresses = new Map<number, Address>([
+      [0, '0x1111111111111111111111111111111111111111' as Address],
+      [1, '0x2222222222222222222222222222222222222222' as Address],
+      [2, '0x3333333333333333333333333333333333333333' as Address],
+    ]);
+    
+    // Simulate getServerAddress behavior
+    const getServerAddress = (partyId: number): Address => {
+      const address = partyAddresses.get(partyId);
+      if (!address) {
+        throw new Error(`No blockchain address configured for party ${partyId}`);
+      }
+      return address;
+    };
+    
+    // Verify each party gets their unique address
+    const address0 = getServerAddress(0);
+    const address1 = getServerAddress(1);
+    const address2 = getServerAddress(2);
+    
+    expect(address0).toBe('0x1111111111111111111111111111111111111111');
+    expect(address1).toBe('0x2222222222222222222222222222222222222222');
+    expect(address2).toBe('0x3333333333333333333333333333333333333333');
+    
+    // Verify they are all different
+    expect(address0).not.toBe(address1);
+    expect(address1).not.toBe(address2);
+    expect(address0).not.toBe(address2);
+  });
+  
+  it('should use correct addresses when building servers array for settlement', () => {
+    const partyAddresses = new Map<number, Address>([
+      [0, '0x1111111111111111111111111111111111111111' as Address],
+      [1, '0x2222222222222222222222222222222222222222' as Address],
+      [2, '0x3333333333333333333333333333333333333333' as Address],
+    ]);
+    
+    const getServerAddress = (partyId: number): Address => {
+      const address = partyAddresses.get(partyId);
+      if (!address) {
+        throw new Error(`No blockchain address configured for party ${partyId}`);
+      }
+      return address;
+    };
+    
+    // Simulate allocations
+    const allocations: Allocation[] = [
+      { partyId: 0, amount: 300n },
+      { partyId: 1, amount: 500n },
+      { partyId: 2, amount: 200n },
+    ];
+    
+    // Build servers array as done in submitSettlement
+    const servers: Address[] = allocations
+      .sort((a, b) => a.partyId - b.partyId)
+      .map((alloc) => getServerAddress(alloc.partyId));
+    
+    // Verify servers array has correct addresses for each party
+    expect(servers).toHaveLength(3);
+    expect(servers[0]).toBe('0x1111111111111111111111111111111111111111'); // Party 0
+    expect(servers[1]).toBe('0x2222222222222222222222222222222222222222'); // Party 1
+    expect(servers[2]).toBe('0x3333333333333333333333333333333333333333'); // Party 2
+    
+    // Verify no duplicate addresses (critical - this was the reported bug)
+    const uniqueAddresses = new Set(servers);
+    expect(uniqueAddresses.size).toBe(3); // All addresses should be unique
+  });
+  
+  it('should throw error for missing party address', () => {
+    const partyAddresses = new Map<number, Address>([
+      [0, '0x1111111111111111111111111111111111111111' as Address],
+      [1, '0x2222222222222222222222222222222222222222' as Address],
+      // Party 2 is missing
+    ]);
+    
+    const getServerAddress = (partyId: number): Address => {
+      const address = partyAddresses.get(partyId);
+      if (!address) {
+        throw new Error(`No blockchain address configured for party ${partyId}`);
+      }
+      return address;
+    };
+    
+    // Should work for party 0 and 1
+    expect(getServerAddress(0)).toBe('0x1111111111111111111111111111111111111111');
+    expect(getServerAddress(1)).toBe('0x2222222222222222222222222222222222222222');
+    
+    // Should throw for party 2
+    expect(() => getServerAddress(2)).toThrow('No blockchain address configured for party 2');
   });
 });

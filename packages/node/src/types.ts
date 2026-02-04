@@ -14,6 +14,7 @@ export interface PartyConfig {
   id: PartyId;
   address: string;
   port: number;
+  blockchainAddress?: string; // Ethereum address for settlement
   publicKey?: string;
   privateKey?: string;
 }
