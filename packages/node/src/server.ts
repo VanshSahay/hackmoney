@@ -66,6 +66,9 @@ export class MPCServer {
   // Received shares from other parties (per intent)
   private receivedShares: Map<IntentId, Map<PartyId, ReplicatedShares>> = new Map();
   
+  // Reconstruction responses: intentId -> variable -> partyId -> shares
+  private reconstructionResponses: Map<IntentId, Map<string, Map<PartyId, ReplicatedShares>>> = new Map();
+  
   constructor(config: MPCServerConfig) {
     this.config = config;
     
@@ -536,8 +539,56 @@ export class MPCServer {
    * Handle reconstruction response
    */
   private async handleReconstructionResponse(msg: P2PMessage): Promise<void> {
-    // Store reconstructed shares
-    console.log(`Received reconstruction response from party ${msg.from}`);
+    const intentId = msg.sessionId as IntentId;
+    const { variable, shares } = msg.payload;
+    
+    console.log(`Received reconstruction response for ${variable} from party ${msg.from}`);
+    
+    // Initialize maps if needed
+    if (!this.reconstructionResponses.has(intentId)) {
+      this.reconstructionResponses.set(intentId, new Map());
+    }
+    
+    const intentMap = this.reconstructionResponses.get(intentId)!;
+    if (!intentMap.has(variable)) {
+      intentMap.set(variable, new Map());
+    }
+    
+    // Store the shares
+    const variableMap = intentMap.get(variable)!;
+    variableMap.set(msg.from, shares);
+  }
+  
+  /**
+   * Wait for reconstruction response from a specific party
+   */
+  private async waitForReconstructionResponse(
+    intentId: IntentId,
+    variable: string,
+    fromParty: PartyId
+  ): Promise<ReplicatedShares> {
+    const timeout = 10000; // 10 seconds
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeout) {
+      const intentMap = this.reconstructionResponses.get(intentId);
+      if (intentMap) {
+        const variableMap = intentMap.get(variable);
+        if (variableMap) {
+          const shares = variableMap.get(fromParty);
+          if (shares) {
+            return shares;
+          }
+        }
+      }
+      
+      // Wait a bit before checking again
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    
+    throw new Error(
+      `Timeout waiting for reconstruction response for ${variable} from party ${fromParty}`
+    );
   }
   
   /**
