@@ -230,11 +230,10 @@ export class MPCServer {
     const intent = eventToIntent(event);
     this.activeIntents.set(intent.id, intent);
     
-    // Check if we have capacity for this token
+    // Fetch capacity for this token (participate even if zero)
     const myCapacity = this.getCapacity(event.tokenIn);
     if (myCapacity === 0n) {
-      console.log('No capacity for this token, skipping...');
-      return;
+      console.log('No capacity for this token, participating with 0...');
     }
     
     console.log(`My capacity: ${myCapacity}`);
