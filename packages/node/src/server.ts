@@ -328,10 +328,11 @@ export class MPCServer {
       
       // Step 7: Sign settlement
       console.log('Step 7: Signing settlement...');
+      const myBlockchainAddress = privateKeyToAccount(this.config.privateKey).address;
       const signature = await this.settlementManager.signSettlement(
         intent.id,
         myAllocation.amount,
-        this.config.myConfig.address as Address
+        myBlockchainAddress
       );
       
       const settlementSig: SettlementSignature = {
