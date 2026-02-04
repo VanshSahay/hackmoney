@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Chain } from "viem"
+import { type Chain, createPublicClient, http } from "viem"
 import { base, baseSepolia } from "viem/chains"
 
 const rpcUrls: Record<number, string | undefined> = {

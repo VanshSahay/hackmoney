@@ -22,6 +22,7 @@ export function ConnectWallet() {
 					</p>
 				)}
 				<button
+					type="button"
 					onClick={() => disconnect()}
 					className="mt-2 cursor-pointer rounded bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
 				>
@@ -35,6 +36,7 @@ export function ConnectWallet() {
 		<div className="flex flex-col gap-2">
 			{connectors.map((connector) => (
 				<button
+					type="button"
 					key={connector.uid}
 					onClick={() => connect({ connector })}
 					disabled={isPending}

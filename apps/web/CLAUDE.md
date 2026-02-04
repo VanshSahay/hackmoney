@@ -55,7 +55,7 @@ No test runner is configured yet. When tests are added, expect `pnpm test` to be
 ## Architecture
 
 - **App Router** (Next.js 13+ convention): All routes live under `app/`. No Pages Router usage.
-- **Path alias**: `@/*` maps to the project root (configured in `tsconfig.json`).
+- **Path alias**: `#/*` maps to the project root (configured in `tsconfig.json`).
 - **Fonts**: Geist Sans and Geist Mono loaded via `next/font/google` in the root layout.
 - **Styling**: Tailwind CSS v4 with `@tailwindcss/postcss` plugin. Theme is configured inline in `app/globals.css` using `@theme inline` with CSS custom properties. No separate `tailwind.config.js`.
 - **Dark mode**: Via `prefers-color-scheme` media query and CSS variables in `globals.css`.

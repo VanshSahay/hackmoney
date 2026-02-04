@@ -10,13 +10,9 @@ export const wagmiConfig = createConfig({
 	chains: supportedChains,
 	ssr: true,
 	storage: createStorage({ storage: cookieStorage }),
-	connectors: [
-		injected(),
-	],
+	connectors: [injected()],
 	transports: {
-		[base.id]: http(
-			process.env.NEXT_PUBLIC_RPC_BASE || undefined,
-		),
+		[base.id]: http(process.env.NEXT_PUBLIC_RPC_BASE || undefined),
 		[baseSepolia.id]: http(
 			process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || undefined,
 		),

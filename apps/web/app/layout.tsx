@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
 import { headers } from "next/headers"
 import { cookieToInitialState } from "wagmi"
-import { Geist, Geist_Mono } from "next/font/google"
-import { wagmiConfig } from "@/config/wagmi"
-import { Web3Provider } from "@/providers/web3-provider"
+import { wagmiConfig } from "#/config/wagmi"
+import { Web3Provider } from "#/providers/web3-provider"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -35,9 +35,7 @@ export default async function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				<Web3Provider initialState={initialState}>
-					{children}
-				</Web3Provider>
+				<Web3Provider initialState={initialState}>{children}</Web3Provider>
 			</body>
 		</html>
 	)

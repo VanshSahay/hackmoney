@@ -1,19 +1,15 @@
 import { Suspense } from "react"
-import { ConnectWallet } from "@/components/connect-wallet"
-import { BlockNumber } from "@/components/block-number"
+import { BlockNumber } from "#/components/block-number"
+import { ConnectWallet } from "#/components/connect-wallet"
 
 export default function Home() {
 	return (
 		<div className="flex min-h-screen items-center justify-center font-sans dark:bg-black">
 			<main className="flex w-full max-w-md flex-col gap-8 p-8">
-				<h1 className="text-2xl font-semibold tracking-tight">
-					HackMoney
-				</h1>
+				<h1 className="text-2xl font-semibold tracking-tight">HackMoney</h1>
 
 				<section className="flex flex-col gap-3">
-					<h2 className="text-sm font-medium text-neutral-500">
-						Wallet
-					</h2>
+					<h2 className="text-sm font-medium text-neutral-500">Wallet</h2>
 					<ConnectWallet />
 				</section>
 

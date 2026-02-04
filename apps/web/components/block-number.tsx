@@ -1,4 +1,4 @@
-import { baseClient } from "@/lib/viem"
+import { baseClient } from "#/lib/viem"
 
 /** Server component — fetches latest Base block number at request time. */
 export async function BlockNumber() {

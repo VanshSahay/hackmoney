@@ -1,9 +1,9 @@
 "use client"
 
-import { type ReactNode, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { type ReactNode, useState } from "react"
 import { type State, WagmiProvider } from "wagmi"
-import { wagmiConfig } from "@/config/wagmi"
+import { wagmiConfig } from "#/config/wagmi"
 
 function makeQueryClient() {
 	return new QueryClient({
@@ -27,9 +27,7 @@ export function Web3Provider({
 
 	return (
 		<WagmiProvider config={wagmiConfig} initialState={initialState}>
-			<QueryClientProvider client={queryClient}>
-				{children}
-			</QueryClientProvider>
+			<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 		</WagmiProvider>
 	)
 }
