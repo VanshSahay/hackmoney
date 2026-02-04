@@ -85,13 +85,13 @@ export class MPCServer {
       config.hookAddress,
       config.chainId
     );
-    this.settlementManager = new SettlementManager(
-      config.rpcUrl,
-      config.privateKey,
-      config.settlementAddress,
+    this.settlementManager = new SettlementManager({
+      rpcUrl: config.rpcUrl,
+      privateKey: config.privateKey,
+      settlementAddress: config.settlementAddress,
       partyAddresses,
-      config.chainId
-    );
+      chainId: config.chainId,
+    });
     
     this.setupMessageHandlers();
     this.setupEventHandlers();

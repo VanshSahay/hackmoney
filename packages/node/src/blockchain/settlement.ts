@@ -19,6 +19,14 @@ import { mainnet, sepolia, hardhat } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { IntentId, Allocation, SettlementSignature } from '../types.js';
 
+type SettlementManagerConfig = {
+  rpcUrl: string;
+  privateKey: Hash;
+  settlementAddress: Address;
+  partyAddresses: Map<number, Address>;
+  chainId?: number;
+};
+
 /**
  * Settlement contract ABI
  */
@@ -40,13 +48,17 @@ export class SettlementManager {
   private chain: Chain;
   private partyAddresses: Map<number, Address>;
   
-  constructor(
-    rpcUrl: string,
-    privateKey: Hash,
-    settlementAddress: Address,
-    partyAddresses: Map<number, Address>,
-    chainId: number = 1
-  ) {
+  constructor({
+    rpcUrl,
+    privateKey,
+    settlementAddress,
+    partyAddresses,
+    chainId = 1,
+  }: SettlementManagerConfig) {
+    if (!(partyAddresses instanceof Map)) {
+      throw new Error('SettlementManager requires partyAddresses Map');
+    }
+
     this.account = privateKeyToAccount(privateKey);
     this.partyAddresses = partyAddresses;
     
