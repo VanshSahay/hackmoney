@@ -524,15 +524,21 @@ export class MPCServer {
     variable: string,
     myShares: ReplicatedShares
   ): Promise<bigint> {
+    // Get the session for this intent
+    const session = this.sessionManager.getSessionByIntent(intentId);
+    if (!session) {
+      throw new Error(`No session found for intent ${intentId}`);
+    }
+    
     // Request shares from the next party in the ring
     const nextParty = (this.config.partyId + 1) % this.config.allParties.length;
     
     console.log(`Requesting shares for ${variable} from party ${nextParty}`);
     
-    // Send reconstruction request
+    // Send reconstruction request with the actual session ID
     await this.network.sendToParty(
       nextParty,
-      MessageBuilder.reconstructionRequest(intentId, nextParty, variable)
+      MessageBuilder.reconstructionRequest(session.id, nextParty, variable)
     );
     
     // Wait for response
