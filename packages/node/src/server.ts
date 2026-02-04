@@ -64,6 +64,9 @@ export class MPCServer {
   private pendingAllocations: Map<IntentId, Allocation> = new Map();
   private pendingSignatures: Map<IntentId, SettlementSignature[]> = new Map();
   
+  // Track intents currently being processed to prevent concurrent execution
+  private processingIntents: Set<IntentId> = new Set();
+  
   // Received shares from other parties (per intent)
   private receivedShares: Map<IntentId, Map<PartyId, ReplicatedShares>> = new Map();
   
@@ -228,6 +231,15 @@ export class MPCServer {
     console.log(`Token Out: ${event.tokenOut}`);
     
     const intent = eventToIntent(event);
+    
+    // Check if this intent is already being processed
+    if (this.processingIntents.has(intent.id)) {
+      console.log(`Intent ${intent.id} is already being processed. Ignoring duplicate event.`);
+      return;
+    }
+    
+    // Mark intent as being processed
+    this.processingIntents.add(intent.id);
     this.activeIntents.set(intent.id, intent);
     
     // Fetch capacity for this token (participate even if zero)
@@ -394,6 +406,9 @@ export class MPCServer {
       
       // Cleanup state even on error to prevent memory leaks
       this.cleanupIntentState(intent.id);
+    } finally {
+      // Always remove from processing set, regardless of success or failure
+      this.processingIntents.delete(intent.id);
     }
   }
   
