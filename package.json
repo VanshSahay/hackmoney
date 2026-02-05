@@ -1,10 +1,13 @@
 {
-  "name": "hackmoney",
-  "private": true,
-  "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm -r build",
-    "contracts:build": "cd contracts && forge build",
-    "contracts:test": "cd contracts && forge test"
-  }
+	"name": "hackmoney",
+	"private": true,
+	"scripts": {
+		"dev": "pnpm --filter web dev",
+		"build": "pnpm -r build",
+		"contracts:build": "cd contracts && forge build",
+		"contracts:test": "cd contracts && forge test"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.14"
+	}
 }
