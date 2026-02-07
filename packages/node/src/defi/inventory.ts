@@ -136,7 +136,7 @@ export class TokenInventoryManager {
     targetAmountOut: bigint,
     slippageBps?: number
   ): Promise<{ success: boolean; amountOut: bigint; txHash?: string }> {
-    const slippage = slippageBps || this.defaultSlippage;
+    const slippage = slippageBps ?? this.defaultSlippage;
     
     console.log(`\n💱 Preparing swap to fulfill requirement:`);
     console.log(`  From: ${tokenIn}`);
