@@ -9,12 +9,19 @@ import {
 	createPublicClient,
 	type Hash,
 	http,
-	type PublicClient,
+	type Log,
 	parseAbiItem,
 	webSocket,
 } from "viem"
 import { hardhat, mainnet, sepolia } from "viem/chains"
 import type { Intent, IntentId } from "../types.js"
+
+// Define the event ABI as a const for type inference
+const IntentCreatedEventAbi = parseAbiItem(
+	"event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)",
+)
+
+type IntentCreatedLog = Log<bigint, number, false, typeof IntentCreatedEventAbi, true>
 
 /**
  * Intent event from the Settlement contract
@@ -39,7 +46,7 @@ export type IntentEventHandler = (
  * Blockchain Event Listener
  */
 export class BlockchainEventListener {
-	private publicClient: PublicClient
+	private publicClient: ReturnType<typeof createPublicClient>
 	private settlementAddress: Address
 	private eventHandlers: IntentEventHandler[] = []
 	private isListening = false
@@ -55,12 +62,12 @@ export class BlockchainEventListener {
 		this.chain = this.getChain(chainId)
 
 		// Use WebSocket if available for real-time events
-		const transport = wsRpcUrl ? webSocket(wsRpcUrl) : http(rpcUrl)
+		const transport = wsRpcUrl ? webSocket(wsRpcUrl) : http(rpcUrl, { batch: true })
 
 		this.publicClient = createPublicClient({
 			chain: this.chain,
 			transport,
-		}) as any
+		})
 
 		this.settlementAddress = settlementAddress
 
@@ -109,13 +116,11 @@ export class BlockchainEventListener {
 		// Watch for IntentCreated events
 		this.unwatch = this.publicClient.watchEvent({
 			address: this.settlementAddress,
-			event: parseAbiItem(
-				"event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)",
-			),
+			event: IntentCreatedEventAbi,
 			onLogs: async (logs) => {
 				for (const log of logs) {
 					try {
-						await this.handleIntentCreated(log)
+						await this.handleIntentCreated(log as IntentCreatedLog)
 					} catch (error) {
 						console.error("Error handling IntentCreated event:", error)
 					}
@@ -130,14 +135,14 @@ export class BlockchainEventListener {
 	/**
 	 * Handle an IntentCreated event
 	 */
-	private async handleIntentCreated(log: any): Promise<void> {
+	private async handleIntentCreated(log: IntentCreatedLog): Promise<void> {
 		const { args, blockNumber, transactionHash } = log
 
 		const event: IntentCreatedEvent = {
-			intentId: args.intentId as Hash,
-			user: args.user as Address,
-			tokenIn: args.tokenIn as Address,
-			tokenOut: args.tokenOut as Address,
+			intentId: args.intentId,
+			user: args.user,
+			tokenIn: args.tokenIn,
+			tokenOut: args.tokenOut,
 			amountIn: args.amountIn,
 			minAmountOut: args.minAmountOut,
 			deadline: args.deadline,
@@ -196,21 +201,19 @@ export class BlockchainEventListener {
 	): Promise<IntentCreatedEvent[]> {
 		const logs = await this.publicClient.getLogs({
 			address: this.settlementAddress,
-			event: parseAbiItem(
-				"event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)",
-			),
+			event: IntentCreatedEventAbi,
 			fromBlock,
 			toBlock: toBlock || "latest",
 		})
 
 		return logs.map((log) => ({
-			intentId: log.args.intentId as Hash,
-			user: log.args.user as Address,
-			tokenIn: log.args.tokenIn as Address,
-			tokenOut: log.args.tokenOut as Address,
-			amountIn: log.args.amountIn as bigint,
-			minAmountOut: log.args.minAmountOut as bigint,
-			deadline: log.args.deadline as bigint,
+			intentId: log.args.intentId,
+			user: log.args.user,
+			tokenIn: log.args.tokenIn,
+			tokenOut: log.args.tokenOut,
+			amountIn: log.args.amountIn,
+			minAmountOut: log.args.minAmountOut,
+			deadline: log.args.deadline,
 			blockNumber: log.blockNumber,
 			transactionHash: log.transactionHash,
 		}))
