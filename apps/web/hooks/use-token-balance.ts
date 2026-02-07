@@ -1,16 +1,15 @@
 "use client"
 
 import type { Address } from "viem"
-import { useReadContract, useBalance } from "wagmi"
+import { useBalance, useReadContract } from "wagmi"
 import { erc20Abi } from "#/lib/abis/erc20"
 import { NATIVE_ETH } from "#/lib/constants"
 
 export function useTokenBalance(
 	tokenAddress: Address | undefined,
-	account: Address | undefined
+	account: Address | undefined,
 ) {
-	const isNative =
-		tokenAddress?.toLowerCase() === NATIVE_ETH.toLowerCase()
+	const isNative = tokenAddress?.toLowerCase() === NATIVE_ETH.toLowerCase()
 
 	const { data: nativeBalance } = useBalance({
 		address: account,

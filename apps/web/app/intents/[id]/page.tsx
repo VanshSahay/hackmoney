@@ -1,12 +1,12 @@
 "use client"
 
 import { useParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card"
+import type { Hex } from "viem"
 import { IntentPhaseBadge } from "#/components/intent/intent-phase-badge"
+import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card"
 import { Skeleton } from "#/components/ui/skeleton"
 import { useIntentStatus } from "#/hooks/use-intent-status"
 import { truncateAddress } from "#/lib/format"
-import type { Hex } from "viem"
 
 export default function IntentPage() {
 	const params = useParams<{ id: string }>()

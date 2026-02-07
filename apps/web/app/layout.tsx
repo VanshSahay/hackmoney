@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { headers } from "next/headers"
 import { cookieToInitialState } from "wagmi"
+import { Header } from "#/components/layout/header"
 import { wagmiConfig } from "#/config/wagmi"
 import { Web3Provider } from "#/providers/web3-provider"
-import { Header } from "#/components/layout/header"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -19,7 +19,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
 	title: "HackMoney — Privacy-Preserving DEX",
-	description: "Intent-based MPC settlement protocol for private, efficient swaps",
+	description:
+		"Intent-based MPC settlement protocol for private, efficient swaps",
 }
 
 export default async function RootLayout({

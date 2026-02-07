@@ -1,11 +1,16 @@
 "use client"
 
 import { useCallback, useRef } from "react"
-import { useIntentStore } from "#/stores/intent-store"
 import { MOCK_PHASE_DURATIONS } from "#/lib/constants"
+import { useIntentStore } from "#/stores/intent-store"
 import type { IntentPhase } from "#/types/intent"
 
-const MOCK_SEQUENCE: IntentPhase[] = ["submitted", "processing", "settling", "filled"]
+const MOCK_SEQUENCE: IntentPhase[] = [
+	"submitted",
+	"processing",
+	"settling",
+	"filled",
+]
 
 export function useMockSettlement() {
 	const { setPhase, setSettlementTxHash } = useIntentStore()
@@ -26,9 +31,7 @@ export function useMockSettlement() {
 				setPhase(phase)
 				if (phase === "filled") {
 					// Generate a mock settlement tx hash
-					setSettlementTxHash(
-						`0x${"0".repeat(62)}42` as `0x${string}`
-					)
+					setSettlementTxHash(`0x${"0".repeat(62)}42` as `0x${string}`)
 				}
 			}, accumulated)
 

@@ -3,12 +3,12 @@
 import { useCallback } from "react"
 import type { Address } from "viem"
 import { useChainId } from "wagmi"
-import { useIntentStore } from "#/stores/intent-store"
-import { useApproveToken } from "#/hooks/use-approve-token"
-import { useSwap } from "#/hooks/use-swap"
-import { useMockSettlement } from "#/hooks/use-mock-settlement"
 import { INTENT_REGISTRY } from "#/config/contracts"
 import type { SupportedChainId } from "#/config/wagmi"
+import { useApproveToken } from "#/hooks/use-approve-token"
+import { useMockSettlement } from "#/hooks/use-mock-settlement"
+import { useSwap } from "#/hooks/use-swap"
+import { useIntentStore } from "#/stores/intent-store"
 
 export function useIntentLifecycle() {
 	const chainId = useChainId() as SupportedChainId
@@ -22,7 +22,7 @@ export function useIntentLifecycle() {
 			tokenIn: Address,
 			tokenOut: Address,
 			amount: bigint,
-			needsApproval: boolean
+			needsApproval: boolean,
 		) => {
 			try {
 				store.reset()
@@ -57,7 +57,7 @@ export function useIntentLifecycle() {
 				store.setError(message)
 			}
 		},
-		[chainId, approve, swap, startMockSettlement, store]
+		[chainId, approve, swap, startMockSettlement, store],
 	)
 
 	return { execute }

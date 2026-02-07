@@ -8,10 +8,9 @@ import { NATIVE_ETH } from "#/lib/constants"
 export function useTokenAllowance(
 	tokenAddress: Address | undefined,
 	owner: Address | undefined,
-	spender: Address | undefined
+	spender: Address | undefined,
 ) {
-	const isNative =
-		tokenAddress?.toLowerCase() === NATIVE_ETH.toLowerCase()
+	const isNative = tokenAddress?.toLowerCase() === NATIVE_ETH.toLowerCase()
 
 	const { data: allowance, refetch } = useReadContract({
 		address: tokenAddress,
@@ -25,7 +24,11 @@ export function useTokenAllowance(
 
 	// Native ETH doesn't need approval — treat as max allowance
 	return {
-		allowance: isNative ? BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff") : allowance,
+		allowance: isNative
+			? BigInt(
+					"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+				)
+			: allowance,
 		refetch,
 	}
 }

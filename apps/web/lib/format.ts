@@ -1,7 +1,11 @@
 import { formatUnits } from "viem"
 
 /** Format a bigint token amount to human-readable string */
-export function formatTokenAmount(amount: bigint, decimals: number, maxDecimals = 4): string {
+export function formatTokenAmount(
+	amount: bigint,
+	decimals: number,
+	maxDecimals = 4,
+): string {
 	const formatted = formatUnits(amount, decimals)
 	const [whole, frac] = formatted.split(".")
 	if (!frac) return whole

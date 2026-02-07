@@ -1,12 +1,12 @@
 "use client"
 
-import { useIntentStore } from "#/stores/intent-store"
+import { Check, Loader2, X } from "lucide-react"
 import { IntentPhaseBadge } from "#/components/intent/intent-phase-badge"
 import { Button } from "#/components/ui/button"
 import { PHASE_DESCRIPTIONS } from "#/lib/constants"
 import { truncateAddress } from "#/lib/format"
+import { useIntentStore } from "#/stores/intent-store"
 import type { IntentPhase } from "#/types/intent"
-import { Check, Loader2, X } from "lucide-react"
 
 const ORDERED_PHASES: IntentPhase[] = [
 	"approving",
@@ -93,9 +93,7 @@ export function IntentTracker() {
 				</p>
 			)}
 
-			{error && (
-				<p className="text-sm text-destructive">{error}</p>
-			)}
+			{error && <p className="text-sm text-destructive">{error}</p>}
 		</div>
 	)
 }

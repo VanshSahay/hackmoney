@@ -1,5 +1,5 @@
-import { create } from "zustand"
 import type { Address, Hex } from "viem"
+import { create } from "zustand"
 import type { IntentPhase, IntentState } from "#/types/intent"
 import { INITIAL_INTENT_STATE } from "#/types/intent"
 
