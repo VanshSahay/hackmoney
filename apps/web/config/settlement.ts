@@ -127,12 +127,13 @@ export function useCreateIntent() {
     minAmountOut: string; // In token units
     deadline: number; // Unix timestamp
     decimalsIn?: number; // Token decimals (default 18)
+    decimalsOut?: number; // Output token decimals (default 18)
   }) => {
-    const { tokenIn, tokenOut, amountIn, minAmountOut, deadline, decimalsIn = 18 } = params;
+    const { tokenIn, tokenOut, amountIn, minAmountOut, deadline, decimalsIn = 18, decimalsOut = 18 } = params;
 
     // Convert amounts to wei
     const amountInWei = parseUnits(amountIn, decimalsIn);
-    const minAmountOutWei = parseUnits(minAmountOut, decimalsIn);
+    const minAmountOutWei = parseUnits(minAmountOut, decimalsOut);
 
     // Call createIntent
     writeContract({
@@ -234,6 +235,7 @@ export function SwapComponent() {
       minAmountOut: '95',
       deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
       decimalsIn: 18,
+      decimalsOut: 18, // Use output token's decimals
     });
   };
 
