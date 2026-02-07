@@ -18,7 +18,9 @@ export function useSwap() {
 		chainId: SupportedChainId,
 		tokenIn: Address,
 		tokenOut: Address,
-		amount: bigint,
+		amountIn: bigint,
+		minAmountOut: bigint,
+		deadline: bigint,
 	) {
 		const registryAddress = INTENT_REGISTRY[chainId]
 		if (!registryAddress) throw new Error("No registry on this chain")
@@ -27,7 +29,7 @@ export function useSwap() {
 			address: registryAddress,
 			abi: intentRegistryAbi,
 			functionName: "createIntent",
-			args: [tokenIn, tokenOut, amount],
+			args: [tokenIn, tokenOut, amountIn, minAmountOut, deadline],
 		})
 	}
 

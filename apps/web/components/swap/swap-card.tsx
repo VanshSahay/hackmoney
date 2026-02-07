@@ -1,13 +1,20 @@
 "use client"
 
-import { ArrowDown } from "lucide-react"
+import { ArrowDown, Settings2 } from "lucide-react"
 import { useCallback, useState } from "react"
 import { parseUnits } from "viem"
 import { useAccount, useChainId } from "wagmi"
 import { IntentTracker } from "#/components/intent/intent-tracker"
+import { SlippageSettings } from "#/components/swap/slippage-settings"
 import { SwapButton } from "#/components/swap/swap-button"
 import { TokenInput } from "#/components/swap/token-input"
+import { Button } from "#/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card"
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "#/components/ui/popover"
 import { Separator } from "#/components/ui/separator"
 import { INTENT_REGISTRY } from "#/config/contracts"
 import { BUY_TOKENS, SELL_TOKENS } from "#/config/tokens"
@@ -15,6 +22,7 @@ import type { SupportedChainId } from "#/config/wagmi"
 import { useIntentLifecycle } from "#/hooks/use-intent-lifecycle"
 import { useTokenAllowance } from "#/hooks/use-token-allowance"
 import { useTokenBalance } from "#/hooks/use-token-balance"
+import { DEFAULT_SLIPPAGE_BPS } from "#/lib/constants"
 import { useIntentStore } from "#/stores/intent-store"
 import type { Token } from "#/types/token"
 
@@ -27,6 +35,7 @@ export function SwapCard() {
 	const [tokenOut, setTokenOut] = useState<Token | null>(BUY_TOKENS[0])
 	const [amountIn, setAmountIn] = useState("")
 	const [amountOut, setAmountOut] = useState("")
+	const [slippageBps, setSlippageBps] = useState(DEFAULT_SLIPPAGE_BPS)
 
 	const tokenInAddress = tokenIn?.addresses[chainId]
 	const spender = INTENT_REGISTRY[chainId]
@@ -47,12 +56,30 @@ export function SwapCard() {
 	const { execute } = useIntentLifecycle()
 
 	const handleSwap = useCallback(() => {
-		if (!tokenIn || !tokenOut || !parsedAmount) return
+		if (!tokenIn || !tokenOut || !parsedAmount || !amountOut) return
 		const tokenInAddr = tokenIn.addresses[chainId]
 		const tokenOutAddr = tokenOut.addresses[chainId]
 		if (!tokenInAddr || !tokenOutAddr) return
-		execute(tokenInAddr, tokenOutAddr, parsedAmount, needsApproval)
-	}, [tokenIn, tokenOut, parsedAmount, chainId, needsApproval, execute])
+
+		const expectedAmountOut = parseUnits(amountOut, tokenOut.decimals)
+		execute({
+			tokenIn: tokenInAddr,
+			tokenOut: tokenOutAddr,
+			amountIn: parsedAmount,
+			expectedAmountOut,
+			needsApproval,
+			slippageBps,
+		})
+	}, [
+		tokenIn,
+		tokenOut,
+		parsedAmount,
+		amountOut,
+		chainId,
+		needsApproval,
+		slippageBps,
+		execute,
+	])
 
 	// Compute mock output (1 ETH ≈ 2500 USDC for demo)
 	const computeOutput = useCallback(
@@ -82,7 +109,22 @@ export function SwapCard() {
 	return (
 		<Card className="w-full max-w-md">
 			<CardHeader className="pb-3">
-				<CardTitle className="text-lg">Swap</CardTitle>
+				<div className="flex items-center justify-between">
+					<CardTitle className="text-lg">Swap</CardTitle>
+					<Popover>
+						<PopoverTrigger asChild>
+							<Button variant="ghost" size="icon" className="h-8 w-8">
+								<Settings2 className="h-4 w-4" />
+							</Button>
+						</PopoverTrigger>
+						<PopoverContent className="w-72" align="end">
+							<SlippageSettings
+								slippageBps={slippageBps}
+								onSlippageChange={setSlippageBps}
+							/>
+						</PopoverContent>
+					</Popover>
+				</div>
 			</CardHeader>
 			<CardContent className="space-y-2">
 				{/* Sell */}
