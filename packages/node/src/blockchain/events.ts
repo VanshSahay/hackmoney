@@ -21,7 +21,13 @@ const IntentCreatedEventAbi = parseAbiItem(
 	"event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)",
 )
 
-type IntentCreatedLog = Log<bigint, number, false, typeof IntentCreatedEventAbi, true>
+type IntentCreatedLog = Log<
+	bigint,
+	number,
+	false,
+	typeof IntentCreatedEventAbi,
+	true
+>
 
 /**
  * Intent event from the Settlement contract
@@ -62,7 +68,9 @@ export class BlockchainEventListener {
 		this.chain = this.getChain(chainId)
 
 		// Use WebSocket if available for real-time events
-		const transport = wsRpcUrl ? webSocket(wsRpcUrl) : http(rpcUrl, { batch: true })
+		const transport = wsRpcUrl
+			? webSocket(wsRpcUrl)
+			: http(rpcUrl, { batch: true })
 
 		this.publicClient = createPublicClient({
 			chain: this.chain,

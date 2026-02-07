@@ -7,7 +7,7 @@ import type { SupportedChainId } from "#/config/wagmi"
 import { intentRegistryAbi } from "#/lib/abis/intent-registry"
 
 export function useSwap() {
-	const { writeContractAsync, data: hash, isPending } = useWriteContract()
+	const { mutateAsync, data: hash, isPending } = useWriteContract()
 	const {
 		isLoading: isConfirming,
 		isSuccess,
@@ -23,7 +23,7 @@ export function useSwap() {
 		const registryAddress = INTENT_REGISTRY[chainId]
 		if (!registryAddress) throw new Error("No registry on this chain")
 
-		return writeContractAsync({
+		return mutateAsync({
 			address: registryAddress,
 			abi: intentRegistryAbi,
 			functionName: "createIntent",
