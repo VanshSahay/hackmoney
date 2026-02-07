@@ -4,16 +4,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Address, Hash } from 'viem';
 
-describe('UniswapManager Configuration', () => {
+describe('UniswapV4Manager Configuration', () => {
   it('should have correct router addresses for supported chains', () => {
     const routers = {
-      1: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-      11155111: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-      8453: '0x2626664c2603336E57B271c5C0b26F421741e481',
-      84532: '0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4',
-      31337: '0xE592427A0AEce92De3Edee1F18E0157C05861564', // Hardhat
+      1: '0x66a9893cc07d91d95644aedd05d03f95e1dba8af',
+      11155111: '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b',
+      8453: '0x6ff5693b99212da76ad316178a184ab56d299b43',
+      84532: '0x492e6456d9528771018deb9e87ef7750ef184104',
+      31337: '0x66a9893cc07d91d95644aedd05d03f95e1dba8af', // Hardhat
     };
 
     // Verify all router addresses are valid Ethereum addresses

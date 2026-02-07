@@ -35,6 +35,7 @@ async function main() {
         id: config.partyId,
         address: config.address,
         port: config.port,
+        blockchainAddress: config.wallet.address,
       },
       allParties: config.peers,
       rpcUrl: config.rpcUrl,

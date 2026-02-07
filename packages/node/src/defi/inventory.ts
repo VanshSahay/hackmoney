@@ -4,7 +4,7 @@
  */
 
 import type { Address } from 'viem';
-import { UniswapManager, type SwapParams } from './uniswap.js';
+import { UniswapV4Manager } from './uniswap_v4.js';
 
 /**
  * Token holding information
@@ -19,7 +19,7 @@ export interface TokenHolding {
  * Inventory Manager Configuration
  */
 export interface InventoryConfig {
-  uniswapManager: UniswapManager;
+  uniswapManager: UniswapV4Manager;
   defaultSlippage?: number; // Basis points (e.g., 500 = 5%)
 }
 
@@ -28,7 +28,7 @@ export interface InventoryConfig {
  * Tracks node's token balances and handles automatic swapping
  */
 export class TokenInventoryManager {
-  private uniswapManager: UniswapManager;
+  private uniswapManager: UniswapV4Manager;
   private holdings: Map<Address, TokenHolding> = new Map();
   private defaultSlippage: number;
   

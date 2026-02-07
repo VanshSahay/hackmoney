@@ -124,19 +124,28 @@ export class SettlementManager {
     console.log('Submitting settlement for intent:', intentId);
     console.log('Allocations:', allocations);
     
+    // Filter out zero-amount allocations (contract rejects amount == 0)
+    const nonZeroAllocations = allocations.filter((a) => a.amount > 0n);
+    const nonZeroParties = new Set(nonZeroAllocations.map((a) => a.partyId));
+    const nonZeroSignatures = signatures.filter((s) => nonZeroParties.has(s.partyId));
+    
+    if (nonZeroAllocations.length === 0) {
+      throw new Error('No non-zero allocations to submit');
+    }
+    
     // Verify we have all signatures
-    if (signatures.length !== allocations.length) {
+    if (nonZeroSignatures.length !== nonZeroAllocations.length) {
       throw new Error('Mismatch between allocations and signatures');
     }
     
     // Create a map of signatures by party ID for correct pairing
     const signaturesByParty = new Map<number, SettlementSignature>();
-    for (const sig of signatures) {
+    for (const sig of nonZeroSignatures) {
       signaturesByParty.set(sig.partyId, sig);
     }
     
     // Pair each allocation with its corresponding signature by party ID
-    const paired = allocations.map((alloc) => {
+    const paired = nonZeroAllocations.map((alloc) => {
       const sig = signaturesByParty.get(alloc.partyId);
       if (!sig) {
         throw new Error(`Missing signature for party ${alloc.partyId}`);

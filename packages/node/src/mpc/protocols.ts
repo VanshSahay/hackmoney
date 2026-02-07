@@ -17,8 +17,14 @@ import {
   subShares,
   mulSharesByConstant,
   reconstruct3Party,
+  reconstructFromTwoParties,
   type ThreePartyShares,
 } from '../crypto/secret-sharing.js';
+
+export interface PartyShares {
+  partyId: PartyId;
+  shares: ReplicatedShares;
+}
 
 /**
  * MPC Protocol Engine
@@ -65,19 +71,29 @@ export class MPCProtocols {
   async checkSufficientCapacity(
     totalSumShares: ReplicatedShares,
     orderSize: bigint,
-    exchangeShares: (shares: ReplicatedShares) => Promise<ReplicatedShares[]>
+    exchangeShares: (shares: ReplicatedShares) => Promise<PartyShares[]>
   ): Promise<boolean> {
     // Exchange shares with other parties
     const allPartyShares = await exchangeShares(totalSumShares);
     
-    // Reconstruct total from all shares
-    // In 3-party RSS, we need all 3 unique shares
-    const uniqueShares = this.extractUniqueShares([
-      totalSumShares,
-      ...allPartyShares,
-    ]);
+    // In 3-party RSS, any 2 parties' shares can reconstruct the secret
+    // We have our shares (totalSumShares) and shares from other parties (allPartyShares)
+    // Pick the first other party's shares to reconstruct with
+    const otherPartyShares = allPartyShares[0]; // Shares from one other party
+    if (!otherPartyShares) {
+      throw new Error('No shares received from other parties for reconstruction');
+    }
     
-    const total = reconstruct3Party(uniqueShares, this.prime);
+    // Reconstruct total capacity using RSS two-party reconstruction
+    const total = reconstructFromTwoParties(
+      totalSumShares,
+      otherPartyShares.shares,
+      this.myPartyId,
+      otherPartyShares.partyId,
+      this.prime
+    );
+    
+    console.log(`Reconstructed total capacity: ${total}, Order size: ${orderSize}`);
     
     // Compare (this is now public knowledge among parties)
     return total >= orderSize;
@@ -99,6 +115,8 @@ export class MPCProtocols {
     // Get unique shares
     const uniqueShares = Array.from(shareCount.keys());
     
+    console.log(`DEBUG: Total shares provided: ${allShares.length}, Unique share values: ${uniqueShares.length}`);
+    
     // In proper 3-party RSS after local operations, we should have exactly 3 unique shares
     // However, if parties independently create shares (which shouldn't happen but might),
     // we might get 6 unique shares. In that case, we can't properly reconstruct.
@@ -117,6 +135,21 @@ export class MPCProtocols {
           share1: sum,
           share2: 0n,
           share3: 0n,
+        };
+      }
+      
+      // If we have more than 3 unique shares but some appear multiple times,
+      // try to find the 3 most common shares (proper RSS replication)
+      if (uniqueShares.length > 3) {
+        const sortedByCount = Array.from(shareCount.entries())
+          .sort((a, b) => b[1] - a[1]);
+        
+        // Take the top 3 most common shares
+        console.warn(`Attempting to reconstruct from top 3 most replicated shares...`);
+        return {
+          share1: sortedByCount[0][0],
+          share2: sortedByCount[1][0],
+          share3: sortedByCount[2][0],
         };
       }
       

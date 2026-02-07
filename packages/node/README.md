@@ -1,6 +1,6 @@
 # VeilSwap Node
 
-Privacy-preserving order splitting across a network of self-custodial servers using Secure Multi-Party Computation (MPC) with automatic token swapping via Uniswap V3.
+Privacy-preserving order splitting across a network of self-custodial servers using Secure Multi-Party Computation (MPC) with automatic token swapping via Uniswap v4.
 
 ## Table of Contents
 
@@ -36,14 +36,14 @@ Each server learns **only** their own allocation for an order through secure mul
 - Session management
 - P2P networking (WebSocket-based)
 - Blockchain integration (Viem)
-- Uniswap V3 integration for automatic token swapping
+- Uniswap v4 integration for automatic token swapping
 - Server orchestration
 
-✅ **Comprehensive Test Suite** (185 tests, all passing)
+✅ **Comprehensive Test Suite**
 - Unit tests for all components
 - Multi-node integration tests
 - Privacy property verification
-- Uniswap and inventory management tests
+- Uniswap v4 and inventory management tests
 - Edge case coverage
 
 ✅ **Production-Ready Structure**
@@ -75,7 +75,7 @@ Each server learns **only** their own allocation for an order through secure mul
 - WebSocket P2P networking
 - Settlement contract integration
 - Automatic wallet generation
-- Uniswap V3 token swapping
+- Uniswap v4 token swapping
 - Token inventory management
 - Multi-chain support (Mainnet, Base, Sepolia, etc.)
 
@@ -184,7 +184,7 @@ On startup, nodes check registration status and display warnings if not register
 
 ### Overview
 
-Nodes can hold **any token** and automatically swap to fulfill intent requirements using Uniswap V3.
+Nodes can hold **any token** and automatically swap to fulfill intent requirements using Uniswap v4 (Universal Router + Permit2).
 
 ### How It Works
 
@@ -194,7 +194,7 @@ Nodes can hold **any token** and automatically swap to fulfill intent requiremen
 3. Auto-Swap: 
    - Node has 200 DAI
    - Calculates swap: 100 DAI → 100 USDC
-   - Executes Uniswap V3 swap
+   - Executes Uniswap v4 swap
    - Updates capacity
 4. MPC Protocol: Participate with USDC
 5. Settlement: Receive proportional ETH
@@ -253,7 +253,7 @@ minOutput = targetOutput * (1 - slippage)
 
 1. **Gas Costs**: Additional swap transaction
 2. **Slippage Risk**: 5% default may not suit all pairs
-3. **Liquidity**: Requires Uniswap V3 liquidity
+3. **Liquidity**: Requires Uniswap v4 liquidity
 4. **Latency**: Adds 10-30 seconds
 5. **MEV Exposure**: Swap visible on-chain
 
@@ -285,6 +285,11 @@ PRIVATE_KEY=0x...
 
 # Uniswap Auto-Swap (default: true)
 ENABLE_AUTO_SWAP=true
+
+# Uniswap v4 pool params (optional overrides)
+# UNISWAP_V4_FEE=3000
+# UNISWAP_V4_TICK_SPACING=60
+# UNISWAP_V4_HOOKS=0x0000000000000000000000000000000000000000
 
 # Initial Token Capacities
 CAPACITY_TOKEN_0=0x...
@@ -363,14 +368,6 @@ pnpm test:coverage     # Coverage report
 pnpm test:ui           # Interactive UI
 ```
 
-### Test Results
-
-```
-✅ 185 tests passing
-📁 11 test files
-⏱️  ~750ms execution time
-```
-
 ### Test Categories
 
 - **Crypto Primitives** (59 tests): Field arithmetic, secret sharing
@@ -378,7 +375,7 @@ pnpm test:ui           # Interactive UI
 - **Session Management** (30 tests): Lifecycle, storage
 - **P2P Network** (11 tests): Communication, messages
 - **Multi-Node Integration** (14 tests): Full protocol
-- **Uniswap Integration** (15 tests): Swap calculations, config
+- **Uniswap Integration**: Swap calculations, config
 - **Inventory Management** (25 tests): Balance tracking, swapping
 - **Settlement Integration** (15 tests): Contract logic
 
@@ -409,7 +406,7 @@ pnpm test:ui           # Interactive UI
               │
               ▼
 ┌─────────────────────────────────────────────┐
-│           Uniswap V3 Router                 │
+│     Uniswap v4 Universal Router             │
 │        (Token Swapping)                     │
 └─────────────────────────────────────────────┘
 ```
@@ -444,7 +441,7 @@ packages/node/
 │   │   ├── events.ts        # Event listener
 │   │   └── settlement.ts    # Settlement manager
 │   ├── defi/
-│   │   ├── uniswap.ts       # Uniswap V3 integration
+│   │   ├── uniswap_v4.ts    # Uniswap v4 integration
 │   │   └── inventory.ts     # Token inventory
 │   └── utils/
 │       ├── wallet.ts        # Wallet management
@@ -612,7 +609,7 @@ cast send $SETTLEMENT_ADDRESS \
 ## Resources
 
 - [Replicated Secret Sharing Paper](https://eprint.iacr.org/2016/768.pdf)
-- [Uniswap V3 Documentation](https://docs.uniswap.org/contracts/v3/)
+- [Uniswap v4 Documentation](https://docs.uniswap.org/contracts/v4/)
 - [Viem Documentation](https://viem.sh/)
 - [Vitest Documentation](https://vitest.dev/)
 

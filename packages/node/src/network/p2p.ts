@@ -113,7 +113,10 @@ export class P2PNetwork {
           from: this.myPartyId,
           to: -1, // Unknown at this point
           sessionId: '',
-          payload: { myPartyId: this.myPartyId },
+          payload: {
+            myPartyId: this.myPartyId,
+            blockchainAddress: this.myConfig.blockchainAddress,
+          },
           timestamp: Date.now(),
         };
         ws.send(serializeMessage(handshakeRequest));
@@ -202,7 +205,10 @@ export class P2PNetwork {
           from: this.myPartyId,
           to: partyId,
           sessionId: '',
-          payload: { myPartyId: this.myPartyId },
+          payload: {
+            myPartyId: this.myPartyId,
+            blockchainAddress: this.myConfig.blockchainAddress,
+          },
           timestamp: Date.now(),
         };
         ws.send(serializeMessage(handshakeResponse));

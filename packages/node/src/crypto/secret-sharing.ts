@@ -91,27 +91,59 @@ export function reconstructFromTwoParties(
   party2Id: number,
   prime: bigint = FIELD_PRIME
 ): SecretValue {
-  // Each party has 2 shares, together they have all 3 (with overlap)
-  // We need to identify the unique shares and sum them
+  // Each party has 2 shares, together they have all 3 with a known overlap
+  const p1 = ((party1Id % 3) + 3) % 3;
+  const p2 = ((party2Id % 3) + 3) % 3;
   
-  const shares = new Set<bigint>([
-    party1Shares.share1,
-    party1Shares.share2,
-    party2Shares.share1,
-    party2Shares.share2,
+  if (p1 === p2) {
+    throw new Error('Invalid reconstruction: parties must be different');
+  }
+  
+  const sharesById = new Map<number, ReplicatedShares>([
+    [p1, party1Shares],
+    [p2, party2Shares],
   ]);
   
-  // Should have exactly 3 unique shares
-  if (shares.size !== 3) {
-    throw new Error('Invalid shares: expected 3 unique shares from 2 parties');
+  let share1: bigint;
+  let share2: bigint;
+  let share3: bigint;
+  
+  if ((p1 === 0 && p2 === 1) || (p1 === 1 && p2 === 0)) {
+    const s0 = sharesById.get(0)!;
+    const s1 = sharesById.get(1)!;
+    // Party 0: (x1, x2), Party 1: (x2, x3)
+    share1 = s0.share1;
+    share2 = s0.share2;
+    share3 = s1.share2;
+    
+    if (s0.share2 !== s1.share1) {
+      console.warn('Reconstruction overlap mismatch for parties 0 and 1');
+    }
+  } else if ((p1 === 1 && p2 === 2) || (p1 === 2 && p2 === 1)) {
+    const s1 = sharesById.get(1)!;
+    const s2 = sharesById.get(2)!;
+    // Party 1: (x2, x3), Party 2: (x3, x1)
+    share1 = s2.share2;
+    share2 = s1.share1;
+    share3 = s1.share2;
+    
+    if (s1.share2 !== s2.share1) {
+      console.warn('Reconstruction overlap mismatch for parties 1 and 2');
+    }
+  } else {
+    const s0 = sharesById.get(0)!;
+    const s2 = sharesById.get(2)!;
+    // Party 0: (x1, x2), Party 2: (x3, x1)
+    share1 = s0.share1;
+    share2 = s0.share2;
+    share3 = s2.share1;
+    
+    if (s0.share1 !== s2.share2) {
+      console.warn('Reconstruction overlap mismatch for parties 0 and 2');
+    }
   }
   
-  let sum = 0n;
-  for (const share of shares) {
-    sum = fieldAdd(sum, share, prime);
-  }
-  
-  return sum;
+  return fieldAdd(fieldAdd(share1, share2, prime), share3, prime);
 }
 
 /**
