@@ -1,10 +1,13 @@
 "use client"
 
 import { Badge } from "#/components/ui/badge"
-import type { IntentPhase } from "#/types/intent"
 import { PHASE_LABELS } from "#/lib/constants"
+import type { IntentPhase } from "#/types/intent"
 
-const PHASE_VARIANT: Record<IntentPhase, "default" | "secondary" | "destructive" | "outline"> = {
+const PHASE_VARIANT: Record<
+	IntentPhase,
+	"default" | "secondary" | "destructive" | "outline"
+> = {
 	idle: "outline",
 	approving: "secondary",
 	submitting: "secondary",
@@ -20,9 +23,5 @@ interface IntentPhaseBadgeProps {
 }
 
 export function IntentPhaseBadge({ phase }: IntentPhaseBadgeProps) {
-	return (
-		<Badge variant={PHASE_VARIANT[phase]}>
-			{PHASE_LABELS[phase]}
-		</Badge>
-	)
+	return <Badge variant={PHASE_VARIANT[phase]}>{PHASE_LABELS[phase]}</Badge>
 }

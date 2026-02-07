@@ -11,15 +11,32 @@ const MOCK_STATS = {
 }
 
 const MOCK_SERVERS = [
-	{ address: "0x1234567890abcdef1234567890abcdef12345678", settlements: 48, online: true },
-	{ address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", settlements: 41, online: true },
-	{ address: "0x9876543210fedcba9876543210fedcba98765432", settlements: 39, online: true },
-	{ address: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", settlements: 12, online: false },
+	{
+		address: "0x1234567890abcdef1234567890abcdef12345678",
+		settlements: 48,
+		online: true,
+	},
+	{
+		address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+		settlements: 41,
+		online: true,
+	},
+	{
+		address: "0x9876543210fedcba9876543210fedcba98765432",
+		settlements: 39,
+		online: true,
+	},
+	{
+		address: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+		settlements: 12,
+		online: false,
+	},
 ]
 
 const MOCK_SETTLEMENTS = [
 	{
-		intentId: "0xabc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc1",
+		intentId:
+			"0xabc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc1",
 		tokenIn: "USDC",
 		tokenOut: "ETH",
 		amountIn: "2,500",
@@ -28,7 +45,8 @@ const MOCK_SETTLEMENTS = [
 		timestamp: "2 min ago",
 	},
 	{
-		intentId: "0xdef456def456def456def456def456def456def456def456def456def456def4",
+		intentId:
+			"0xdef456def456def456def456def456def456def456def456def456def456def4",
 		tokenIn: "USDC",
 		tokenOut: "ETH",
 		amountIn: "5,000",
@@ -37,7 +55,8 @@ const MOCK_SETTLEMENTS = [
 		timestamp: "8 min ago",
 	},
 	{
-		intentId: "0x789789789789789789789789789789789789789789789789789789789789789a",
+		intentId:
+			"0x789789789789789789789789789789789789789789789789789789789789789a",
 		tokenIn: "WETH",
 		tokenOut: "USDC",
 		amountIn: "0.5",
@@ -53,7 +72,8 @@ export default function LpPage() {
 			<div>
 				<h1 className="text-2xl font-semibold tracking-tight">LP Servers</h1>
 				<p className="text-sm text-muted-foreground">
-					Publicly observable on-chain data. Individual capacities and allocations remain private.
+					Publicly observable on-chain data. Individual capacities and
+					allocations remain private.
 				</p>
 			</div>
 

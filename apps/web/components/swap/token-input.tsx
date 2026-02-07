@@ -1,7 +1,7 @@
 "use client"
 
-import { Input } from "#/components/ui/input"
 import { TokenSelector } from "#/components/swap/token-selector"
+import { Input } from "#/components/ui/input"
 import { formatTokenAmount } from "#/lib/format"
 import type { Token } from "#/types/token"
 
@@ -38,7 +38,13 @@ export function TokenInput({
 						className="text-xs text-muted-foreground hover:text-foreground"
 						onClick={() => {
 							if (onAmountChange && !readOnly) {
-								onAmountChange(formatTokenAmount(balance, selectedToken.decimals, selectedToken.decimals))
+								onAmountChange(
+									formatTokenAmount(
+										balance,
+										selectedToken.decimals,
+										selectedToken.decimals,
+									),
+								)
 							}
 						}}
 					>

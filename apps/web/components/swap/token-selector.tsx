@@ -16,7 +16,12 @@ interface TokenSelectorProps {
 	disabled?: boolean
 }
 
-export function TokenSelector({ tokens, selected, onSelect, disabled }: TokenSelectorProps) {
+export function TokenSelector({
+	tokens,
+	selected,
+	onSelect,
+	disabled,
+}: TokenSelectorProps) {
 	return (
 		<Select
 			value={selected?.symbol ?? ""}

@@ -1,22 +1,22 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { ArrowDown } from "lucide-react"
+import { useCallback, useState } from "react"
 import { parseUnits } from "viem"
 import { useAccount, useChainId } from "wagmi"
+import { IntentTracker } from "#/components/intent/intent-tracker"
+import { SwapButton } from "#/components/swap/swap-button"
+import { TokenInput } from "#/components/swap/token-input"
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card"
 import { Separator } from "#/components/ui/separator"
-import { TokenInput } from "#/components/swap/token-input"
-import { SwapButton } from "#/components/swap/swap-button"
-import { IntentTracker } from "#/components/intent/intent-tracker"
-import { SELL_TOKENS, BUY_TOKENS } from "#/config/tokens"
-import { useIntentStore } from "#/stores/intent-store"
-import { useTokenBalance } from "#/hooks/use-token-balance"
-import { useTokenAllowance } from "#/hooks/use-token-allowance"
-import { useIntentLifecycle } from "#/hooks/use-intent-lifecycle"
 import { INTENT_REGISTRY } from "#/config/contracts"
-import type { Token } from "#/types/token"
+import { BUY_TOKENS, SELL_TOKENS } from "#/config/tokens"
 import type { SupportedChainId } from "#/config/wagmi"
-import { ArrowDown } from "lucide-react"
+import { useIntentLifecycle } from "#/hooks/use-intent-lifecycle"
+import { useTokenAllowance } from "#/hooks/use-token-allowance"
+import { useTokenBalance } from "#/hooks/use-token-balance"
+import { useIntentStore } from "#/stores/intent-store"
+import type { Token } from "#/types/token"
 
 export function SwapCard() {
 	const chainId = useChainId() as SupportedChainId
@@ -34,7 +34,7 @@ export function SwapCard() {
 	const { balance: balanceIn } = useTokenBalance(tokenInAddress, address)
 	const { balance: balanceOut } = useTokenBalance(
 		tokenOut?.addresses[chainId],
-		address
+		address,
 	)
 	const { allowance } = useTokenAllowance(tokenInAddress, address, spender)
 
@@ -74,7 +74,7 @@ export function SwapCard() {
 				setAmountOut(val.toFixed(4))
 			}
 		},
-		[tokenIn, tokenOut]
+		[tokenIn, tokenOut],
 	)
 
 	const isActive = phase !== "idle" && phase !== "filled" && phase !== "failed"
@@ -123,9 +123,9 @@ export function SwapCard() {
 				{tokenIn && tokenOut && amountIn && amountOut && (
 					<p className="text-center text-xs text-muted-foreground">
 						1 {tokenIn.symbol} ≈{" "}
-						{(Number.parseFloat(amountOut) / Number.parseFloat(amountIn)).toFixed(
-							6
-						)}{" "}
+						{(
+							Number.parseFloat(amountOut) / Number.parseFloat(amountIn)
+						).toFixed(6)}{" "}
 						{tokenOut.symbol}
 					</p>
 				)}

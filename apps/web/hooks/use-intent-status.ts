@@ -1,10 +1,10 @@
 "use client"
 
 import type { Hex } from "viem"
-import { useReadContract, useWatchContractEvent, useChainId } from "wagmi"
-import { intentRegistryAbi } from "#/lib/abis/intent-registry"
+import { useChainId, useReadContract, useWatchContractEvent } from "wagmi"
 import { INTENT_REGISTRY } from "#/config/contracts"
 import type { SupportedChainId } from "#/config/wagmi"
+import { intentRegistryAbi } from "#/lib/abis/intent-registry"
 
 export function useIntentStatus(intentId: Hex | null) {
 	const chainId = useChainId() as SupportedChainId
