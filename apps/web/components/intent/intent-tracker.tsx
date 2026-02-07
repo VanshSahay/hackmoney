@@ -1,9 +1,10 @@
 "use client"
 
-import { Check, Loader2, X } from "lucide-react"
+import { Check, ExternalLink, Loader2, X } from "lucide-react"
 import { IntentPhaseBadge } from "#/components/intent/intent-phase-badge"
 import { Button } from "#/components/ui/button"
-import { PHASE_DESCRIPTIONS } from "#/lib/constants"
+import { useSettlementWatcher } from "#/hooks/use-settlement-watcher"
+import { BLOCK_EXPLORER_URL, PHASE_DESCRIPTIONS } from "#/lib/constants"
 import { truncateAddress } from "#/lib/format"
 import { useIntentStore } from "#/stores/intent-store"
 import type { IntentPhase } from "#/types/intent"
@@ -21,9 +22,26 @@ function phaseIndex(phase: IntentPhase): number {
 	return ORDERED_PHASES.indexOf(phase)
 }
 
+function ExplorerLink({ hash, label }: { hash: `0x${string}`; label: string }) {
+	return (
+		<a
+			href={`${BLOCK_EXPLORER_URL}/tx/${hash}`}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+		>
+			{label}: {truncateAddress(hash, 6)}
+			<ExternalLink className="h-3 w-3" />
+		</a>
+	)
+}
+
 export function IntentTracker() {
 	const { phase, txHash, intentId, settlementTxHash, error, reset } =
 		useIntentStore()
+
+	// Watch for settlement events
+	useSettlementWatcher()
 
 	const currentIdx = phaseIndex(phase)
 
@@ -76,22 +94,18 @@ export function IntentTracker() {
 				})}
 			</div>
 
-			{/* Tx info */}
-			{txHash && (
-				<p className="text-xs text-muted-foreground">
-					Tx: {truncateAddress(txHash, 6)}
-				</p>
-			)}
-			{intentId && (
-				<p className="text-xs text-muted-foreground">
-					Intent: {truncateAddress(intentId, 6)}
-				</p>
-			)}
-			{settlementTxHash && (
-				<p className="text-xs text-muted-foreground">
-					Settlement: {truncateAddress(settlementTxHash, 6)}
-				</p>
-			)}
+			{/* Tx info with explorer links */}
+			<div className="space-y-1">
+				{txHash && <ExplorerLink hash={txHash} label="Tx" />}
+				{intentId && (
+					<p className="text-xs text-muted-foreground">
+						Intent: {truncateAddress(intentId, 6)}
+					</p>
+				)}
+				{settlementTxHash && (
+					<ExplorerLink hash={settlementTxHash} label="Settlement" />
+				)}
+			</div>
 
 			{error && <p className="text-sm text-destructive">{error}</p>}
 		</div>

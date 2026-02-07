@@ -1,10 +1,10 @@
 "use client"
 
 import type { Hex } from "viem"
-import { useChainId, useReadContract, useWatchContractEvent } from "wagmi"
+import { useChainId, useReadContract } from "wagmi"
 import { INTENT_REGISTRY } from "#/config/contracts"
 import type { SupportedChainId } from "#/config/wagmi"
-import { intentRegistryAbi } from "#/lib/abis/intent-registry"
+import { IntentStatus, intentRegistryAbi } from "#/lib/abis/intent-registry"
 
 export function useIntentStatus(intentId: Hex | null) {
 	const chainId = useChainId() as SupportedChainId
@@ -18,16 +18,20 @@ export function useIntentStatus(intentId: Hex | null) {
 		query: { enabled: !!intentId && !!registryAddress },
 	})
 
-	useWatchContractEvent({
+	const { data: statusCode } = useReadContract({
 		address: registryAddress,
 		abi: intentRegistryAbi,
-		eventName: "IntentFilled",
-		args: intentId ? { intentId } : undefined,
-		enabled: !!intentId && !!registryAddress,
-		onLogs: () => {
-			refetch()
-		},
+		functionName: "getIntentStatus",
+		args: intentId ? [intentId] : undefined,
+		query: { enabled: !!intentId && !!registryAddress },
 	})
 
-	return { intentData, refetch }
+	const status =
+		statusCode === IntentStatus.Filled
+			? "filled"
+			: statusCode === IntentStatus.Cancelled
+				? "cancelled"
+				: "pending"
+
+	return { intentData, status, refetch }
 }
