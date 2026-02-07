@@ -117,7 +117,7 @@ export const ERC20_ABI = [
 
 // React hook for creating intents
 export function useCreateIntent() {
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const createIntent = async (params: {
@@ -135,13 +135,15 @@ export function useCreateIntent() {
     const amountInWei = parseUnits(amountIn, decimalsIn);
     const minAmountOutWei = parseUnits(minAmountOut, decimalsOut);
 
-    // Call createIntent
-    writeContract({
+    // Call createIntent and wait for transaction hash
+    const hash = await writeContractAsync({
       address: SETTLEMENT_ADDRESS,
       abi: SETTLEMENT_ABI,
       functionName: 'createIntent',
       args: [tokenIn, tokenOut, amountInWei, minAmountOutWei, BigInt(deadline)],
     });
+    
+    return hash;
   };
 
   return {
@@ -155,18 +157,20 @@ export function useCreateIntent() {
 
 // React hook for approving tokens
 export function useApproveToken() {
-  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const approve = async (tokenAddress: `0x${string}`, amount: string, decimals = 18) => {
     const amountWei = parseUnits(amount, decimals);
 
-    writeContract({
+    const hash = await writeContractAsync({
       address: tokenAddress,
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [SETTLEMENT_ADDRESS, amountWei],
     });
+    
+    return hash;
   };
 
   return {
@@ -214,34 +218,48 @@ export function useWatchIntentEvents(onIntentCreated?: (log: any) => void) {
 // Example usage in a component:
 /*
 import { useCreateIntent, useApproveToken } from '@/config/settlement';
+import { useWaitForTransactionReceipt } from 'wagmi';
 
 export function SwapComponent() {
-  const { createIntent, isPending, isSuccess } = useCreateIntent();
-  const { approve, isPending: isApproving } = useApproveToken();
+  const { createIntent, isPending, isConfirming, isSuccess } = useCreateIntent();
+  const { approve, isPending: isApproving, isConfirming: isApproveConfirming } = useApproveToken();
 
   const handleSwap = async () => {
-    // 1. First approve the token
-    await approve(
-      '0x...' as `0x${string}`, // tokenIn address
-      '100', // amount
-      18 // decimals
-    );
-
-    // 2. Then create the intent
-    await createIntent({
-      tokenIn: '0x...' as `0x${string}`,
-      tokenOut: '0x...' as `0x${string}`,
-      amountIn: '100',
-      minAmountOut: '95',
-      deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-      decimalsIn: 18,
-      decimalsOut: 18, // Use output token's decimals
-    });
+    try {
+      // 1. First approve the token and wait for confirmation
+      const approveHash = await approve(
+        '0x...' as `0x${string}`, // tokenIn address
+        '100', // amount
+        18 // decimals
+      );
+      // Note: The hook's useWaitForTransactionReceipt will track confirmation status
+      // You can check isApproveConfirming state to know when it's confirmed
+      
+      // 2. Then create the intent (only after approval is submitted)
+      const intentHash = await createIntent({
+        tokenIn: '0x...' as `0x${string}`,
+        tokenOut: '0x...' as `0x${string}`,
+        amountIn: '100',
+        minAmountOut: '95',
+        deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        decimalsIn: 18,
+        decimalsOut: 18, // Use output token's decimals
+      });
+      // The hook's useWaitForTransactionReceipt will track confirmation
+    } catch (error) {
+      console.error('Transaction failed:', error);
+    }
   };
 
+  const isLoading = isApproving || isPending || isApproveConfirming || isConfirming;
+
   return (
-    <button onClick={handleSwap} disabled={isPending || isApproving}>
-      {isApproving ? 'Approving...' : isPending ? 'Creating Intent...' : 'Swap'}
+    <button onClick={handleSwap} disabled={isLoading}>
+      {isApproving ? 'Approving...' : 
+       isApproveConfirming ? 'Waiting for approval confirmation...' :
+       isPending ? 'Creating Intent...' : 
+       isConfirming ? 'Confirming intent...' :
+       isSuccess ? 'Success!' : 'Swap'}
     </button>
   );
 }
