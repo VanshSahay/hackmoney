@@ -40,7 +40,7 @@ unregisterNode(nodeAddress)
 ## 🔗 Quick Links
 
 - **Explorer**: https://sepolia.basescan.org/address/0x56053B0ed4BB1b493c2B15FFa4BA21AF3d1492E4
-- **RPC URL**: https://base-sepolia.g.alchemy.com/v2/wfTWOqX-tfO2ahOiD3rCXzscObxKVms-
+- **RPC URL**: https://base-sepolia.g.alchemy.com/v2/$YOUR_ALCHEMY_API_KEY
 
 ## 📚 Documentation Files
 

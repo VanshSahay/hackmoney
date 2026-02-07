@@ -121,8 +121,8 @@ isNodeRegistered(node) → bool
 cast send 0x56053B0ed4BB1b493c2B15FFa4BA21AF3d1492E4 \
   "registerNode(address)" \
   <NODE_ADDRESS> \
-  --rpc-url https://base-sepolia.g.alchemy.com/v2/wfTWOqX-tfO2ahOiD3rCXzscObxKVms- \
-  --private-key 0x9d75962544708d5cd5896b138ff1d8ae64e11a64e9fd3cfeb9504fb4835bea78
+  --rpc-url https://base-sepolia.g.alchemy.com/v2/$YOUR_ALCHEMY_API_KEY \
+  --private-key $PRIVATE_KEY
 ```
 
 ### 2. Start MPC Nodes
@@ -197,7 +197,7 @@ Ran 26 tests for test/Settlement.t.sol:SettlementTest
 **Base Sepolia Testnet**
 - Contract: `0x56053B0ed4BB1b493c2B15FFa4BA21AF3d1492E4`
 - Chain ID: `84532`
-- RPC URL: `https://base-sepolia.g.alchemy.com/v2/wfTWOqX-tfO2ahOiD3rCXzscObxKVms-`
+- RPC URL: `https://base-sepolia.g.alchemy.com/v2/$YOUR_ALCHEMY_API_KEY`
 - Explorer: https://sepolia.basescan.org/address/0x56053B0ed4BB1b493c2B15FFa4BA21AF3d1492E4
 
 ## 💡 Key Design Decisions
