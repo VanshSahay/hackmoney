@@ -65,10 +65,13 @@ export function createNodeList(
   peers: { name: string; port?: number }[],
   myPort?: number
 ): NodeInfo[] {
+  // Filter out own name from peers to avoid duplicates
+  const otherPeers = peers.filter(peer => peer.name !== myNodeName);
+  
   // Create list of all nodes including self
   const allNodes = [
     { name: myNodeName, port: myPort },
-    ...peers,
+    ...otherPeers,
   ];
   
   // Sort by name to ensure consistent party ID assignment across all nodes
