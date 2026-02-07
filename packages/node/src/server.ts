@@ -87,11 +87,16 @@ export class MPCServer {
     this.sessionManager = new MPCSessionManager(config.partyId);
     this.protocols = new MPCProtocols(config.partyId, config.allParties.length);
     this.network = new P2PNetwork(config.partyId, config.myConfig, config.allParties);
+    
+    // Initialize event listener with WebSocket if available
+    const wsRpcUrl = process.env['WS_RPC_URL'];
     this.eventListener = new BlockchainEventListener(
       config.rpcUrl,
       config.settlementAddress,
-      config.chainId
+      config.chainId,
+      wsRpcUrl
     );
+    
     this.settlementManager = new SettlementManager({
       rpcUrl: config.rpcUrl,
       privateKey: config.privateKey,
@@ -135,14 +140,15 @@ export class MPCServer {
         const account = privateKeyToAccount(myPrivateKey);
         addresses.set(party.id, account.address);
       } else {
-        // For other parties, use configured blockchain address
-        if (!party.blockchainAddress) {
-          throw new Error(
-            `Missing blockchain address for party ${party.id}. ` +
-            `Please set PEER_${party.id}_BLOCKCHAIN_ADDRESS in environment variables.`
-          );
+        // For other parties, use configured blockchain address if available
+        // Otherwise, it will be shared during P2P handshake
+        if (party.blockchainAddress) {
+          addresses.set(party.id, party.blockchainAddress as Address);
+        } else {
+          // Use a placeholder - will be updated after handshake
+          console.log(`⏳ Blockchain address for party ${party.id} will be received via P2P`);
+          addresses.set(party.id, '0x0000000000000000000000000000000000000000' as Address);
         }
-        addresses.set(party.id, party.blockchainAddress as Address);
       }
     }
     

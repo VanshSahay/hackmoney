@@ -6,6 +6,7 @@
 import {
   createPublicClient,
   http,
+  webSocket,
   type PublicClient,
   type Address,
   type Hash,
@@ -46,16 +47,24 @@ export class BlockchainEventListener {
   constructor(
     rpcUrl: string,
     settlementAddress: Address,
-    chainId: number = 1
+    chainId: number = 1,
+    wsRpcUrl?: string
   ) {
     this.chain = this.getChain(chainId);
     
+    // Use WebSocket if available for real-time events
+    const transport = wsRpcUrl ? webSocket(wsRpcUrl) : http(rpcUrl);
+    
     this.publicClient = createPublicClient({
       chain: this.chain,
-      transport: http(rpcUrl),
+      transport,
     }) as any;
     
     this.settlementAddress = settlementAddress;
+    
+    if (wsRpcUrl) {
+      console.log('🔌 Using WebSocket for real-time event listening');
+    }
   }
   
   /**

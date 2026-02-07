@@ -12,6 +12,7 @@ import {
   createNodeList,
   findMyNode,
   validateNodeName,
+  generateEnsSubname,
   type NodeInfo,
 } from './utils/ens.js';
 
@@ -52,8 +53,23 @@ export interface Config {
  * Load configuration from environment variables
  */
 export function loadConfig(): Config {
-  // Node identity
-  const nodeName = getEnv('NODE_NAME');
+  // Node identity - support auto-generation from base ENS
+  const baseEns = process.env['BASE_ENS']; // e.g., "myproject.eth"
+  const nodeIndex = process.env['NODE_INDEX'] ? parseInt(process.env['NODE_INDEX'], 10) : undefined;
+  
+  let nodeName: string;
+  
+  // If NODE_NAME provided, use it directly
+  if (process.env['NODE_NAME']) {
+    nodeName = getEnv('NODE_NAME');
+  } else if (baseEns && nodeIndex !== undefined) {
+    // Auto-generate from BASE_ENS + NODE_INDEX
+    nodeName = generateEnsSubname(baseEns, nodeIndex);
+    console.log(`🏷️  Auto-generated node name: ${nodeName}`);
+  } else {
+    throw new Error('Either NODE_NAME or (BASE_ENS + NODE_INDEX) must be provided');
+  }
+  
   validateNodeName(nodeName);
   
   // Parse peer list
@@ -120,17 +136,48 @@ function buildPeerConfig(
       port: node.port,
     };
     
-    // Add blockchain address (for self, use wallet address; for others, to be shared via P2P)
+    // Add blockchain address
     if (node.partyId === myPartyId) {
+      // Use own wallet address
       config.blockchainAddress = myBlockchainAddress;
     } else {
-      // For other nodes, blockchain address will be shared during initial handshake
-      // For now, we'll use a placeholder that will be updated
-      config.blockchainAddress = node.blockchainAddress;
+      // For other nodes, try to load their wallet if it exists locally
+      // This allows nodes running on the same machine to discover each other
+      const peerWallet = loadPeerWallet(node.name);
+      if (peerWallet) {
+        config.blockchainAddress = peerWallet.address;
+        console.log(`📂 Loaded blockchain address for ${node.name}: ${peerWallet.address}`);
+      } else {
+        // Will be shared via P2P handshake or set via env var
+        config.blockchainAddress = process.env[`PEER_${node.partyId}_BLOCKCHAIN_ADDRESS`] as Address;
+      }
     }
     
     return config;
   });
+}
+
+/**
+ * Try to load a peer's wallet from the local wallet directory
+ * This helps when running multiple nodes on the same machine
+ */
+function loadPeerWallet(nodeName: string): { address: Address } | null {
+  try {
+    const { existsSync, readFileSync } = require('fs');
+    const { join } = require('path');
+    const { homedir } = require('os');
+    
+    const safeName = nodeName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const walletPath = join(homedir(), '.mpc-node', 'wallets', `${safeName}.json`);
+    
+    if (existsSync(walletPath)) {
+      const data = JSON.parse(readFileSync(walletPath, 'utf-8'));
+      return { address: data.address };
+    }
+  } catch (error) {
+    // Ignore errors, wallet doesn't exist or can't be read
+  }
+  return null;
 }
 
 /**

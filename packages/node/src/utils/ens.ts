@@ -18,6 +18,32 @@ export interface NodeInfo {
 }
 
 /**
+ * Generate automatic ENS subname for a node
+ * If user has mainENS, generates: node0.mainENS, node1.mainENS, etc.
+ */
+export function generateEnsSubname(baseEns: string, nodeIndex: number): string {
+  if (!baseEns || !baseEns.includes('.')) {
+    // Not a valid ENS, return simple name
+    return `node${nodeIndex}`;
+  }
+  
+  return `node${nodeIndex}.${baseEns}`;
+}
+
+/**
+ * Get base ENS from environment or generate node names
+ */
+export function getNodeNamesFromConfig(baseEns?: string, numNodes: number = 3): string[] {
+  if (baseEns && baseEns.includes('.')) {
+    // Generate subnames under base ENS
+    return Array.from({ length: numNodes }, (_, i) => generateEnsSubname(baseEns, i));
+  }
+  
+  // Default names
+  return ['alice.eth', 'bob.eth', 'charlie.eth'].slice(0, numNodes);
+}
+
+/**
  * Generate a deterministic port number from a node name
  * This ensures the same node name always gets the same port
  */

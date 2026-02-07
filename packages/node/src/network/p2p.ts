@@ -6,11 +6,11 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import type {
   P2PMessage,
-  MessageType,
   PartyId,
   PartyConfig,
   ReplicatedShares,
 } from '../types.js';
+import { MessageType } from '../types.js';
 
 export type MessageHandler = (message: P2PMessage) => void | Promise<void>;
 
@@ -107,10 +107,29 @@ export class P2PNetwork {
       this.server.on('connection', (ws: WebSocket, req) => {
         console.log('Incoming connection from:', req.socket.remoteAddress);
         
+        // Send handshake request to identify the connecting party
+        const handshakeRequest: P2PMessage = {
+          type: MessageType.HANDSHAKE_REQUEST,
+          from: this.myPartyId,
+          to: -1, // Unknown at this point
+          sessionId: '',
+          payload: { myPartyId: this.myPartyId },
+          timestamp: Date.now(),
+        };
+        ws.send(serializeMessage(handshakeRequest));
+        
         // Handle incoming messages
         ws.on('message', async (data: Buffer) => {
           try {
             const message = deserializeMessage(data);
+            
+            // Handle handshake response
+            if (message.type === MessageType.HANDSHAKE_RESPONSE) {
+              const partyId = message.payload.myPartyId as PartyId;
+              console.log(`Identified incoming connection as party ${partyId}`);
+              this.connections.set(partyId, ws);
+            }
+            
             await this.handleIncomingMessage(message, ws);
           } catch (error) {
             console.error('Error handling message:', error);
@@ -122,7 +141,14 @@ export class P2PNetwork {
         });
         
         ws.on('close', () => {
-          console.log('Connection closed');
+          // Find and remove this connection
+          for (const [partyId, connection] of this.connections.entries()) {
+            if (connection === ws) {
+              this.connections.delete(partyId);
+              console.log(`Connection to party ${partyId} closed`);
+              break;
+            }
+          }
         });
       });
     });
@@ -169,6 +195,18 @@ export class P2PNetwork {
         clearTimeout(timeout);
         console.log(`Connected to party ${partyId} at ${url}`);
         this.connections.set(partyId, ws);
+        
+        // Send handshake response
+        const handshakeResponse: P2PMessage = {
+          type: MessageType.HANDSHAKE_RESPONSE,
+          from: this.myPartyId,
+          to: partyId,
+          sessionId: '',
+          payload: { myPartyId: this.myPartyId },
+          timestamp: Date.now(),
+        };
+        ws.send(serializeMessage(handshakeResponse));
+        
         resolve();
       });
       
@@ -188,8 +226,11 @@ export class P2PNetwork {
       });
       
       ws.on('close', () => {
-        this.connections.delete(partyId);
-        console.log(`Connection to party ${partyId} closed`);
+        // Only delete if this websocket is still the active connection for this party
+        if (this.connections.get(partyId) === ws) {
+          this.connections.delete(partyId);
+          console.log(`Connection to party ${partyId} closed`);
+        }
       });
     });
   }
