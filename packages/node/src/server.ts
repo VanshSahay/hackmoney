@@ -208,7 +208,7 @@ export class MPCServer {
 				"   Please register this node before participating in settlements.",
 			)
 			console.warn(
-				'   Contract owner must call: registerNode("${nodeAddress}")',
+				`   Contract owner must call: registerNode("${nodeAddress}")`,
 			)
 		} else {
 			console.log(`✅ Node registered with Settlement contract: ${nodeAddress}`)
@@ -804,7 +804,7 @@ export class MPCServer {
 			this.computationShares.set(intentId, new Map())
 		}
 
-		const intentShares = this.computationShares.get(intentId)!
+		const intentShares = this.computationShares.get(intentId)
 		intentShares.set(fromParty, shares)
 	}
 
@@ -922,7 +922,7 @@ export class MPCServer {
 		}
 
 		// Store the shares
-		const variableMap = sessionMap.get(variable)!
+		const variableMap = sessionMap.get(variable)
 		variableMap.set(msg.from, shares)
 	}
 

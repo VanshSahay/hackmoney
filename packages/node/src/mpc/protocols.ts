@@ -24,6 +24,8 @@ export interface PartyShares {
  */
 export class MPCProtocols {
 	private myPartyId: PartyId
+	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: Vansh do we need this?
+	private numParties: number
 	private prime: bigint
 
 	constructor(
