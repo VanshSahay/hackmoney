@@ -5,17 +5,26 @@
 
 import { MPCServer } from './server.js';
 import { loadConfig, validateConfig, printConfig } from './config.js';
+import { displayWalletInfo } from './utils/wallet.js';
 
 /**
  * Main entry point
  */
 async function main() {
-  console.log('🔐 MPC-Based Order Splitting Server');
-  console.log('Privacy-preserving DEX liquidity coordination\n');
+  console.log('\n');
+  console.log('╔═══════════════════════════════════════════════════════════════╗');
+  console.log('║         🔐 MPC-BASED ORDER SPLITTING SERVER 🔐               ║');
+  console.log('║     Privacy-Preserving DEX Liquidity Coordination             ║');
+  console.log('╚═══════════════════════════════════════════════════════════════╝');
   
   try {
     // Load configuration
     const config = loadConfig();
+    
+    // Display wallet information
+    displayWalletInfo(config.wallet);
+    
+    // Validate and print configuration
     validateConfig(config);
     printConfig(config);
     
@@ -29,10 +38,10 @@ async function main() {
       },
       allParties: config.peers,
       rpcUrl: config.rpcUrl,
-      hookAddress: config.hookAddress,
       settlementAddress: config.settlementAddress,
       privateKey: config.privateKey,
       chainId: config.chainId,
+      enableAutoSwap: config.enableAutoSwap,
     });
     
     // Set initial capacities
@@ -53,11 +62,11 @@ async function main() {
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     
-    console.log('✓ Server is running and listening for intents');
-    console.log('Press Ctrl+C to stop\n');
+    console.log('✅ Server is running and listening for intents');
+    console.log('💡 Press Ctrl+C to stop\n');
     
   } catch (error) {
-    console.error('Fatal error:', error);
+    console.error('\n❌ Fatal error:', error);
     process.exit(1);
   }
 }

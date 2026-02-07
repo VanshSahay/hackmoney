@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "network:start": "./scripts/run-local-network.sh",
+    "network:stop": "./scripts/stop-local-network.sh"
   },
   "keywords": ["mpc", "defi", "privacy", "uniswap"],
   "author": "",

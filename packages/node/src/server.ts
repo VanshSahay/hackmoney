@@ -21,6 +21,8 @@ import { MPCProtocols } from './mpc/protocols.js';
 import { P2PNetwork, MessageBuilder } from './network/p2p.js';
 import { BlockchainEventListener, eventToIntent, type IntentCreatedEvent } from './blockchain/events.js';
 import { SettlementManager } from './blockchain/settlement.js';
+import { UniswapManager } from './defi/uniswap.js';
+import { TokenInventoryManager } from './defi/inventory.js';
 import {
   secretShare3Party,
   getPartyShares,
@@ -40,10 +42,10 @@ export interface MPCServerConfig {
   myConfig: PartyConfig;
   allParties: PartyConfig[];
   rpcUrl: string;
-  hookAddress: Address;
   settlementAddress: Address;
   privateKey: Hash;
   chainId?: number;
+  enableAutoSwap?: boolean; // Enable automatic token swapping
 }
 
 /**
@@ -57,6 +59,8 @@ export class MPCServer {
   private network: P2PNetwork;
   private eventListener: BlockchainEventListener;
   private settlementManager: SettlementManager;
+  private uniswapManager?: UniswapManager;
+  private inventoryManager?: TokenInventoryManager;
   
   // Server state
   private capacities: Map<string, ServerCapacity> = new Map();
@@ -85,7 +89,7 @@ export class MPCServer {
     this.network = new P2PNetwork(config.partyId, config.myConfig, config.allParties);
     this.eventListener = new BlockchainEventListener(
       config.rpcUrl,
-      config.hookAddress,
+      config.settlementAddress,
       config.chainId
     );
     this.settlementManager = new SettlementManager({
@@ -95,6 +99,22 @@ export class MPCServer {
       partyAddresses,
       chainId: config.chainId,
     });
+    
+    // Initialize Uniswap and Inventory managers if auto-swap enabled
+    if (config.enableAutoSwap !== false) {
+      this.uniswapManager = new UniswapManager({
+        rpcUrl: config.rpcUrl,
+        privateKey: config.privateKey,
+        chainId: config.chainId || 1,
+      });
+      
+      this.inventoryManager = new TokenInventoryManager({
+        uniswapManager: this.uniswapManager,
+        defaultSlippage: 500, // 5%
+      });
+      
+      console.log('🔄 Auto-swap enabled via Uniswap');
+    }
     
     this.setupMessageHandlers();
     this.setupEventHandlers();
@@ -134,6 +154,19 @@ export class MPCServer {
    */
   async start(): Promise<void> {
     console.log(`Starting MPC Server (Party ${this.config.partyId})...`);
+    
+    // Check if node is registered
+    const nodeAddress = this.settlementManager.getNodeAddress();
+    const isRegistered = await this.settlementManager.isNodeRegistered(nodeAddress);
+    
+    if (!isRegistered) {
+      console.warn('⚠️  WARNING: Node not registered with Settlement contract!');
+      console.warn(`   Node address: ${nodeAddress}`);
+      console.warn('   Please register this node before participating in settlements.');
+      console.warn('   Contract owner must call: registerNode("${nodeAddress}")');
+    } else {
+      console.log(`✅ Node registered with Settlement contract: ${nodeAddress}`);
+    }
     
     // Start P2P network
     await this.network.start();
@@ -243,12 +276,33 @@ export class MPCServer {
     this.activeIntents.set(intent.id, intent);
     
     // Fetch capacity for this token (participate even if zero)
-    const myCapacity = this.getCapacity(event.tokenIn);
-    if (myCapacity === 0n) {
-      console.log('No capacity for this token, participating with 0...');
+    let myCapacity = this.getCapacity(event.tokenIn);
+    
+    // If we don't have this token but have inventory manager, try to swap
+    if (myCapacity === 0n && this.inventoryManager) {
+      console.log(`No capacity for ${event.tokenIn}, attempting to swap from other tokens...`);
+      
+      const result = await this.inventoryManager.fulfillRequirement(
+        event.tokenIn,
+        event.amountIn / BigInt(this.config.allParties.length) // Estimate our share
+      );
+      
+      if (result.success) {
+        // Update capacity after swap
+        const newBalance = await this.inventoryManager.getBalance(event.tokenIn, true);
+        this.setCapacity(event.tokenIn, newBalance);
+        myCapacity = newBalance;
+        console.log(`✅ Swapped successfully! New capacity: ${myCapacity}`);
+      } else {
+        console.log(`❌ Could not swap to obtain ${event.tokenIn}`);
+      }
     }
     
-    console.log(`My capacity: ${myCapacity}`);
+    if (myCapacity === 0n) {
+      console.log('No capacity for this token, participating with 0...');
+    } else {
+      console.log(`My capacity: ${myCapacity}`);
+    }
     
     // Start MPC protocol
     await this.runMPCProtocol(intent, myCapacity);
@@ -770,7 +824,28 @@ export class MPCServer {
       throw new Error('No signatures available');
     }
     
+    // Get intent to know which tokens to approve
+    const intent = this.activeIntents.get(intentId);
+    if (!intent) {
+      throw new Error('Intent not found');
+    }
+    
     try {
+      // Approve tokenOut for Settlement contract before submitting
+      // Each node needs to approve their output amount
+      const myAllocation = allocations.find(a => a.partyId === this.config.partyId);
+      if (myAllocation && myAllocation.amount > 0n) {
+        console.log(`Approving ${myAllocation.amount} of ${intent.tokenOut} for Settlement contract...`);
+        
+        if (this.uniswapManager) {
+          await this.uniswapManager.ensureApproval(
+            intent.tokenOut as Address,
+            this.settlementManager.getSettlementAddress(),
+            myAllocation.amount
+          );
+        }
+      }
+      
       const hash = await this.settlementManager.submitSettlement(
         intentId,
         allocations,

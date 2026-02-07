@@ -6,6 +6,14 @@
 import { config as dotenvConfig } from 'dotenv';
 import type { PartyConfig } from './types.js';
 import type { Address, Hash } from 'viem';
+import { getOrCreateWallet, type WalletInfo } from './utils/wallet.js';
+import {
+  parsePeerList,
+  createNodeList,
+  findMyNode,
+  validateNodeName,
+  type NodeInfo,
+} from './utils/ens.js';
 
 // Load .env file
 dotenvConfig();
@@ -14,98 +22,115 @@ dotenvConfig();
  * Server configuration
  */
 export interface Config {
-  // Server identity
+  // Node identity
+  nodeName: string;
   partyId: number;
   address: string;
   port: number;
   
   // Network configuration
   peers: PartyConfig[];
+  allNodes: NodeInfo[];
   
   // Blockchain configuration
   rpcUrl: string;
   chainId: number;
-  hookAddress: Address;
   settlementAddress: Address;
   privateKey: Hash;
   
+  // Wallet information
+  wallet: WalletInfo;
+  
   // Capacity configuration
   initialCapacities: Map<string, bigint>;
+  
+  // Uniswap configuration
+  enableAutoSwap: boolean;
 }
 
 /**
  * Load configuration from environment variables
  */
 export function loadConfig(): Config {
-  // Required environment variables
-  const partyId = getEnvNumber('PARTY_ID');
-  const address = getEnv('ADDRESS', 'localhost');
-  const port = getEnvNumber('PORT', 3000 + partyId);
+  // Node identity
+  const nodeName = getEnv('NODE_NAME');
+  validateNodeName(nodeName);
+  
+  // Parse peer list
+  const peersString = getEnv('PEERS', '');
+  const peerList = parsePeerList(peersString);
+  
+  // Get or set port
+  const portEnv = process.env['PORT'];
+  const port = portEnv && portEnv !== 'auto' 
+    ? parseInt(portEnv, 10) 
+    : undefined; // Will be auto-generated from node name
+  
+  // Create sorted node list with assigned party IDs
+  const allNodes = createNodeList(nodeName, peerList, port);
+  const myNode = findMyNode(allNodes, nodeName);
   
   // Blockchain configuration
   const rpcUrl = getEnv('RPC_URL', 'http://localhost:8545');
-  const chainId = getEnvNumber('CHAIN_ID', 31337); // Default to local
-  const hookAddress = getEnv('HOOK_ADDRESS') as Address;
+  const chainId = getEnvNumber('CHAIN_ID', 31337);
   const settlementAddress = getEnv('SETTLEMENT_ADDRESS') as Address;
-  const privateKey = getEnv('PRIVATE_KEY') as Hash;
   
-  // Peer configuration
-  const numParties = getEnvNumber('NUM_PARTIES', 3);
-  const peers = loadPeerConfig(numParties, partyId, address, port);
+  // Wallet management - auto-generate if not provided
+  const privateKeyEnv = process.env['PRIVATE_KEY'] as Hash | undefined;
+  const wallet = getOrCreateWallet(nodeName, privateKeyEnv);
+  
+  // Build peer configuration for MPC server
+  const peers = buildPeerConfig(allNodes, myNode.partyId, wallet.address);
   
   // Initial capacities
   const initialCapacities = loadInitialCapacities();
   
+  // Uniswap configuration
+  const enableAutoSwap = getEnv('ENABLE_AUTO_SWAP', 'true').toLowerCase() === 'true';
+  
   return {
-    partyId,
-    address,
-    port,
+    nodeName,
+    partyId: myNode.partyId,
+    address: myNode.address,
+    port: myNode.port,
     peers,
+    allNodes,
     rpcUrl,
     chainId,
-    hookAddress,
     settlementAddress,
-    privateKey,
+    privateKey: wallet.privateKey,
+    wallet,
     initialCapacities,
+    enableAutoSwap,
   };
 }
 
 /**
- * Load peer configuration
- * Expects PEER_0_ADDRESS, PEER_0_PORT, PEER_0_BLOCKCHAIN_ADDRESS, etc.
+ * Build peer configuration from node list
  */
-function loadPeerConfig(
-  numParties: number,
+function buildPeerConfig(
+  allNodes: NodeInfo[],
   myPartyId: number,
-  myAddress: string,
-  myPort: number
+  myBlockchainAddress: Address
 ): PartyConfig[] {
-  const peers: PartyConfig[] = [];
-  
-  for (let i = 0; i < numParties; i++) {
-    if (i === myPartyId) {
-      // Add self - blockchain address will be derived from private key
-      peers.push({
-        id: i,
-        address: myAddress,
-        port: myPort,
-      });
+  return allNodes.map(node => {
+    const config: PartyConfig = {
+      id: node.partyId,
+      address: node.address,
+      port: node.port,
+    };
+    
+    // Add blockchain address (for self, use wallet address; for others, to be shared via P2P)
+    if (node.partyId === myPartyId) {
+      config.blockchainAddress = myBlockchainAddress;
     } else {
-      // Load peer from env
-      const peerAddress = getEnv(`PEER_${i}_ADDRESS`, 'localhost');
-      const peerPort = getEnvNumber(`PEER_${i}_PORT`, 3000 + i);
-      const blockchainAddress = process.env[`PEER_${i}_BLOCKCHAIN_ADDRESS`];
-      
-      peers.push({
-        id: i,
-        address: peerAddress,
-        port: peerPort,
-        blockchainAddress,
-      });
+      // For other nodes, blockchain address will be shared during initial handshake
+      // For now, we'll use a placeholder that will be updated
+      config.blockchainAddress = node.blockchainAddress;
     }
-  }
-  
-  return peers;
+    
+    return config;
+  });
 }
 
 /**
@@ -173,9 +198,6 @@ export function validateConfig(config: Config): void {
   }
   
   // Validate addresses
-  if (!config.hookAddress || !config.hookAddress.startsWith('0x')) {
-    throw new Error('Invalid hook address');
-  }
   if (!config.settlementAddress || !config.settlementAddress.startsWith('0x')) {
     throw new Error('Invalid settlement address');
   }
@@ -197,25 +219,42 @@ export function validateConfig(config: Config): void {
  * Print configuration (excluding sensitive data)
  */
 export function printConfig(config: Config): void {
-  console.log('\n=== MPC Server Configuration ===');
-  console.log(`Party ID: ${config.partyId}`);
-  console.log(`Address: ${config.address}:${config.port}`);
-  console.log(`Chain ID: ${config.chainId}`);
-  console.log(`Hook Address: ${config.hookAddress}`);
-  console.log(`Settlement Address: ${config.settlementAddress}`);
-  console.log(`RPC URL: ${config.rpcUrl}`);
-  console.log('\nPeers:');
-  for (const peer of config.peers) {
-    const isSelf = peer.id === config.partyId ? ' (self)' : '';
-    console.log(`  Party ${peer.id}: ${peer.address}:${peer.port}${isSelf}`);
+  console.log('\n╔═══════════════════════════════════════════════════════════════╗');
+  console.log('║                  MPC SERVER CONFIGURATION                     ║');
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  console.log(`║ Node Name:     ${config.nodeName.padEnd(44)}║`);
+  console.log(`║ Party ID:      ${config.partyId.toString().padEnd(44)}║`);
+  console.log(`║ Network:       ${`${config.address}:${config.port}`.padEnd(44)}║`);
+  console.log(`║ Wallet:        ${config.wallet.address.padEnd(44)}║`);
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  console.log('║ BLOCKCHAIN                                                    ║');
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  console.log(`║ Chain ID:      ${config.chainId.toString().padEnd(44)}║`);
+  console.log(`║ RPC URL:       ${config.rpcUrl.padEnd(44)}║`);
+  console.log(`║ Settlement:    ${config.settlementAddress.padEnd(44)}║`);
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  console.log('║ NETWORK PEERS                                                 ║');
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  
+  for (const node of config.allNodes) {
+    const isSelf = node.partyId === config.partyId;
+    const marker = isSelf ? ' (YOU)' : '';
+    const nodeStr = `Party ${node.partyId}: ${node.name}${marker}`;
+    console.log(`║ ${nodeStr.padEnd(61)}║`);
   }
-  console.log('\nInitial Capacities:');
+  
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  console.log('║ INITIAL CAPACITIES                                            ║');
+  console.log('╠═══════════════════════════════════════════════════════════════╣');
+  
   if (config.initialCapacities.size === 0) {
-    console.log('  (none configured)');
+    console.log('║ (none configured)                                             ║');
   } else {
     for (const [token, amount] of config.initialCapacities.entries()) {
-      console.log(`  ${token}: ${amount}`);
+      const capacityStr = `${token.substring(0, 10)}...${token.slice(-8)}: ${amount}`;
+      console.log(`║ ${capacityStr.padEnd(61)}║`);
     }
   }
-  console.log('================================\n');
+  
+  console.log('╚═══════════════════════════════════════════════════════════════╝\n');
 }

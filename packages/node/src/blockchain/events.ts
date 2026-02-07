@@ -1,6 +1,6 @@
 /**
  * Blockchain Event Listener
- * Listens for IntentCreated events from UniswapV4 hook
+ * Listens for IntentCreated events from Settlement contract
  */
 
 import {
@@ -16,7 +16,7 @@ import { mainnet, sepolia, hardhat } from 'viem/chains';
 import type { Intent, IntentId } from '../types.js';
 
 /**
- * Intent event from the hook contract
+ * Intent event from the Settlement contract
  */
 export interface IntentCreatedEvent {
   intentId: IntentId;
@@ -37,7 +37,7 @@ export type IntentEventHandler = (event: IntentCreatedEvent) => void | Promise<v
  */
 export class BlockchainEventListener {
   private publicClient: PublicClient;
-  private hookAddress: Address;
+  private settlementAddress: Address;
   private eventHandlers: IntentEventHandler[] = [];
   private isListening = false;
   private unwatch?: () => void;
@@ -45,7 +45,7 @@ export class BlockchainEventListener {
   
   constructor(
     rpcUrl: string,
-    hookAddress: Address,
+    settlementAddress: Address,
     chainId: number = 1
   ) {
     this.chain = this.getChain(chainId);
@@ -55,7 +55,7 @@ export class BlockchainEventListener {
       transport: http(rpcUrl),
     }) as any;
     
-    this.hookAddress = hookAddress;
+    this.settlementAddress = settlementAddress;
   }
   
   /**
@@ -91,11 +91,11 @@ export class BlockchainEventListener {
       return;
     }
     
-    console.log(`Starting to listen for IntentCreated events at ${this.hookAddress}`);
+    console.log(`Starting to listen for IntentCreated events at ${this.settlementAddress}`);
     
     // Watch for IntentCreated events
     this.unwatch = this.publicClient.watchEvent({
-      address: this.hookAddress,
+      address: this.settlementAddress,
       event: parseAbiItem(
         'event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)'
       ),
@@ -182,7 +182,7 @@ export class BlockchainEventListener {
     toBlock?: bigint
   ): Promise<IntentCreatedEvent[]> {
     const logs = await this.publicClient.getLogs({
-      address: this.hookAddress,
+      address: this.settlementAddress,
       event: parseAbiItem(
         'event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)'
       ),

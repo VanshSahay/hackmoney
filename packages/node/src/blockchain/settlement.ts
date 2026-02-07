@@ -28,12 +28,21 @@ type SettlementManagerConfig = {
 };
 
 /**
- * Settlement contract ABI
+ * Settlement contract ABI - matches Settlement.sol
  */
 const SETTLEMENT_ABI = parseAbi([
-  'function batchFillIntent(bytes32 intentId, address[] calldata servers, uint256[] calldata amounts, bytes[] calldata signatures) external',
+  // View functions
   'function getIntentStatus(bytes32 intentId) external view returns (uint8)',
-  'event IntentFilled(bytes32 indexed intentId, uint256 totalAmount, uint256 numServers)',
+  'function isNodeRegistered(address node) external view returns (bool)',
+  'function getRegisteredNodes() external view returns (address[])',
+  'function getNodeCount() external view returns (uint256)',
+  // Write functions
+  'function batchFillIntent(bytes32 intentId, address[] calldata nodes, uint256[] calldata amounts, bytes[] calldata signatures) external',
+  'function registerNode(address node) external',
+  // Events
+  'event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)',
+  'event IntentFilled(bytes32 indexed intentId, uint256 totalAmountOut, uint256 numNodes)',
+  'event NodeRegistered(address indexed node)',
 ]);
 
 /**
@@ -238,6 +247,39 @@ export class SettlementManager {
       throw new Error(`No blockchain address configured for party ${partyId}`);
     }
     return address;
+  }
+  
+  /**
+   * Check if node is registered with Settlement contract
+   */
+  async isNodeRegistered(nodeAddress: Address): Promise<boolean> {
+    try {
+      const registered = await (this.publicClient.readContract as any)({
+        address: this.settlementAddress,
+        abi: SETTLEMENT_ABI,
+        functionName: 'isNodeRegistered',
+        args: [nodeAddress],
+      });
+      
+      return registered as boolean;
+    } catch (error) {
+      console.error('Error checking node registration:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Get the node's wallet address
+   */
+  getNodeAddress(): Address {
+    return this.account.address;
+  }
+  
+  /**
+   * Get the settlement contract address
+   */
+  getSettlementAddress(): Address {
+    return this.settlementAddress;
   }
   
   /**
