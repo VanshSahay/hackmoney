@@ -13,14 +13,16 @@ import type {
   ReplicatedShares,
   ServerCapacity,
   MPCResult,
-  MessageType,
   P2PMessage,
 } from './types.js';
+import { MessageType } from './types.js';
 import { MPCSessionManager } from './mpc/session.js';
-import { MPCProtocols } from './mpc/protocols.js';
+import { MPCProtocols, type PartyShares } from './mpc/protocols.js';
 import { P2PNetwork, MessageBuilder } from './network/p2p.js';
 import { BlockchainEventListener, eventToIntent, type IntentCreatedEvent } from './blockchain/events.js';
 import { SettlementManager } from './blockchain/settlement.js';
+import { UniswapV4Manager } from './defi/uniswap_v4.js';
+import { TokenInventoryManager } from './defi/inventory.js';
 import {
   secretShare3Party,
   getPartyShares,
@@ -40,10 +42,10 @@ export interface MPCServerConfig {
   myConfig: PartyConfig;
   allParties: PartyConfig[];
   rpcUrl: string;
-  hookAddress: Address;
   settlementAddress: Address;
   privateKey: Hash;
   chainId?: number;
+  enableAutoSwap?: boolean; // Enable automatic token swapping
 }
 
 /**
@@ -57,6 +59,9 @@ export class MPCServer {
   private network: P2PNetwork;
   private eventListener: BlockchainEventListener;
   private settlementManager: SettlementManager;
+  private partyAddresses: Map<number, Address>;
+  private uniswapManager?: UniswapV4Manager;
+  private inventoryManager?: TokenInventoryManager;
   
   // Server state
   private capacities: Map<string, ServerCapacity> = new Map();
@@ -70,6 +75,9 @@ export class MPCServer {
   // Received shares from other parties (per intent)
   private receivedShares: Map<IntentId, Map<PartyId, ReplicatedShares>> = new Map();
   
+  // Computation round shares (per intent)
+  private computationShares: Map<IntentId, Map<PartyId, ReplicatedShares>> = new Map();
+  
   // Reconstruction responses: sessionId -> variable -> partyId -> shares
   private reconstructionResponses: Map<string, Map<string, Map<PartyId, ReplicatedShares>>> = new Map();
   
@@ -78,16 +86,22 @@ export class MPCServer {
     
     // Build party address mapping from config
     const partyAddresses = this.buildPartyAddresses(config.allParties, config.privateKey);
+    this.partyAddresses = partyAddresses;
     
     // Initialize components
     this.sessionManager = new MPCSessionManager(config.partyId);
     this.protocols = new MPCProtocols(config.partyId, config.allParties.length);
     this.network = new P2PNetwork(config.partyId, config.myConfig, config.allParties);
+    
+    // Initialize event listener with WebSocket if available
+    const wsRpcUrl = process.env['WS_RPC_URL'];
     this.eventListener = new BlockchainEventListener(
       config.rpcUrl,
-      config.hookAddress,
-      config.chainId
+      config.settlementAddress,
+      config.chainId,
+      wsRpcUrl
     );
+    
     this.settlementManager = new SettlementManager({
       rpcUrl: config.rpcUrl,
       privateKey: config.privateKey,
@@ -95,6 +109,31 @@ export class MPCServer {
       partyAddresses,
       chainId: config.chainId,
     });
+    
+    // Initialize Uniswap v4 and Inventory managers if auto-swap enabled
+    if (config.enableAutoSwap !== false) {
+      const v4Fee = process.env['UNISWAP_V4_FEE'] ? parseInt(process.env['UNISWAP_V4_FEE'], 10) : undefined;
+      const v4TickSpacing = process.env['UNISWAP_V4_TICK_SPACING']
+        ? parseInt(process.env['UNISWAP_V4_TICK_SPACING'], 10)
+        : undefined;
+      const v4Hooks = process.env['UNISWAP_V4_HOOKS'] as Address | undefined;
+      
+      this.uniswapManager = new UniswapV4Manager({
+        rpcUrl: config.rpcUrl,
+        privateKey: config.privateKey,
+        chainId: config.chainId || 1,
+        feeTier: v4Fee,
+        tickSpacing: v4TickSpacing,
+        hooks: v4Hooks,
+      });
+      
+      this.inventoryManager = new TokenInventoryManager({
+        uniswapManager: this.uniswapManager,
+        defaultSlippage: 500, // 5%
+      });
+      
+      console.log('🔄 Auto-swap enabled via Uniswap v4');
+    }
     
     this.setupMessageHandlers();
     this.setupEventHandlers();
@@ -115,14 +154,15 @@ export class MPCServer {
         const account = privateKeyToAccount(myPrivateKey);
         addresses.set(party.id, account.address);
       } else {
-        // For other parties, use configured blockchain address
-        if (!party.blockchainAddress) {
-          throw new Error(
-            `Missing blockchain address for party ${party.id}. ` +
-            `Please set PEER_${party.id}_BLOCKCHAIN_ADDRESS in environment variables.`
-          );
+        // For other parties, use configured blockchain address if available
+        // Otherwise, it will be shared during P2P handshake
+        if (party.blockchainAddress) {
+          addresses.set(party.id, party.blockchainAddress as Address);
+        } else {
+          // Use a placeholder - will be updated after handshake
+          console.log(`⏳ Blockchain address for party ${party.id} will be received via P2P`);
+          addresses.set(party.id, '0x0000000000000000000000000000000000000000' as Address);
         }
-        addresses.set(party.id, party.blockchainAddress as Address);
       }
     }
     
@@ -134,6 +174,19 @@ export class MPCServer {
    */
   async start(): Promise<void> {
     console.log(`Starting MPC Server (Party ${this.config.partyId})...`);
+    
+    // Check if node is registered
+    const nodeAddress = this.settlementManager.getNodeAddress();
+    const isRegistered = await this.settlementManager.isNodeRegistered(nodeAddress);
+    
+    if (!isRegistered) {
+      console.warn('⚠️  WARNING: Node not registered with Settlement contract!');
+      console.warn(`   Node address: ${nodeAddress}`);
+      console.warn('   Please register this node before participating in settlements.');
+      console.warn('   Contract owner must call: registerNode("${nodeAddress}")');
+    } else {
+      console.log(`✅ Node registered with Settlement contract: ${nodeAddress}`);
+    }
     
     // Start P2P network
     await this.network.start();
@@ -185,6 +238,14 @@ export class MPCServer {
    * Setup P2P message handlers
    */
   private setupMessageHandlers(): void {
+    // Capture peer blockchain addresses from handshake messages
+    this.network.onMessage(MessageType.HANDSHAKE_REQUEST, (msg: P2PMessage) => {
+      this.handleHandshakeAddress(msg);
+    });
+    this.network.onMessage(MessageType.HANDSHAKE_RESPONSE, (msg: P2PMessage) => {
+      this.handleHandshakeAddress(msg);
+    });
+    
     // Handle share distribution messages
     this.network.onMessage('SHARE_DISTRIBUTION' as MessageType, async (msg: P2PMessage) => {
       await this.handleShareDistribution(msg);
@@ -196,19 +257,31 @@ export class MPCServer {
     });
     
     // Handle reconstruction requests
-    this.network.onMessage('RECONSTRUCTION_REQUEST' as MessageType, async (msg: P2PMessage) => {
+    this.network.onMessage(MessageType.RECONSTRUCTION_REQUEST, async (msg: P2PMessage) => {
       await this.handleReconstructionRequest(msg);
     });
     
     // Handle reconstruction responses
-    this.network.onMessage('RECONSTRUCTION_RESPONSE' as MessageType, async (msg: P2PMessage) => {
+    this.network.onMessage(MessageType.RECONSTRUCTION_RESPONSE, async (msg: P2PMessage) => {
       await this.handleReconstructionResponse(msg);
     });
     
     // Handle settlement signatures
-    this.network.onMessage('SETTLEMENT_SIGNATURE' as MessageType, async (msg: P2PMessage) => {
+    this.network.onMessage(MessageType.SETTLEMENT_SIGNATURE, async (msg: P2PMessage) => {
       await this.handleSettlementSignature(msg);
     });
+  }
+
+  private handleHandshakeAddress(msg: P2PMessage): void {
+    const address = msg.payload?.blockchainAddress as Address | undefined;
+    if (!address) {
+      return;
+    }
+    
+    if (this.partyAddresses.get(msg.from) !== address) {
+      this.partyAddresses.set(msg.from, address);
+      console.log(`✅ Updated blockchain address for party ${msg.from}: ${address}`);
+    }
   }
   
   /**
@@ -242,13 +315,47 @@ export class MPCServer {
     this.processingIntents.add(intent.id);
     this.activeIntents.set(intent.id, intent);
     
-    // Fetch capacity for this token (participate even if zero)
-    const myCapacity = this.getCapacity(event.tokenIn);
-    if (myCapacity === 0n) {
-      console.log('No capacity for this token, participating with 0...');
+    // Fetch capacity for the OUTPUT token (what nodes need to provide to fulfill the intent)
+    // Note: tokenOut is what the nodes provide, tokenIn is what the user provides
+    let myCapacity = this.getCapacity(event.tokenOut);
+    
+    // If we don't have cached capacity and have inventory manager, check on-chain balance
+    if (myCapacity === 0n && this.inventoryManager) {
+      console.log(`Checking on-chain balance for ${event.tokenOut}...`);
+      const onChainBalance = await this.inventoryManager.getBalance(event.tokenOut, true);
+      
+      if (onChainBalance > 0n) {
+        console.log(`✅ Found on-chain balance: ${onChainBalance}`);
+        this.setCapacity(event.tokenOut, onChainBalance);
+        myCapacity = onChainBalance;
+      } else {
+        // Seed holdings with tokenIn so swaps can use it as a source if available.
+        // This helps exercise Uniswap integration when tokenOut balance is zero.
+        await this.inventoryManager.getBalance(event.tokenIn, true);
+        console.log(`No on-chain balance for ${event.tokenOut}, attempting to swap from other tokens...`);
+        
+        const result = await this.inventoryManager.fulfillRequirement(
+          event.tokenOut,
+          event.minAmountOut / BigInt(this.config.allParties.length) // Estimate our share (tokenOut units)
+        );
+        
+        if (result.success) {
+          // Update capacity after swap
+          const newBalance = await this.inventoryManager.getBalance(event.tokenOut, true);
+          this.setCapacity(event.tokenOut, newBalance);
+          myCapacity = newBalance;
+          console.log(`✅ Swapped successfully! New capacity: ${myCapacity}`);
+        } else {
+          console.log(`❌ Could not swap to obtain ${event.tokenOut}`);
+        }
+      }
     }
     
-    console.log(`My capacity: ${myCapacity}`);
+    if (myCapacity === 0n) {
+      console.log('No capacity for this token, participating with 0...');
+    } else {
+      console.log(`My capacity: ${myCapacity}`);
+    }
     
     // Start MPC protocol
     await this.runMPCProtocol(intent, myCapacity);
@@ -313,7 +420,7 @@ export class MPCServer {
       console.log('Step 5: Checking sufficient capacity...');
       const sufficient = await this.protocols.checkSufficientCapacity(
         totalSumShares,
-        intent.amountIn,
+        intent.minAmountOut,
         async (shares) => {
           // Exchange shares for sum reconstruction
           return await this.exchangeSharesForSum(intent.id, shares);
@@ -332,26 +439,62 @@ export class MPCServer {
       // Step 6: Compute allocations
       console.log('Step 6: Computing allocations...');
       
-      // For simplicity, we reveal capacities to compute allocations
-      // In a fully private system, this would use secure division
-      const capacities: bigint[] = [];
-      for (let i = 0; i < parties.length; i++) {
-        const shares = this.sessionManager.getShares(session.id, `capacity_${i}`);
-        if (shares) {
-          // Request reconstruction from other parties
-          const capacity = await this.reconstructValue(intent.id, `capacity_${i}`, shares);
-          capacities.push(capacity);
+      let allocations: Array<{ partyId: number; amount: bigint }>;
+      
+      // If my capacity is 0, all allocations will be 0 (optimization)
+      if (myCapacity === 0n) {
+        console.log('My capacity is 0, skipping reconstruction (zero allocation)');
+        allocations = parties.map((_, i) => ({
+          partyId: i,
+          amount: 0n,
+        }));
+      } else {
+        // For simplicity, we reveal capacities to compute allocations
+        // In a fully private system, this would use secure division
+        const capacities: bigint[] = [];
+        for (let i = 0; i < parties.length; i++) {
+          let shares: ReplicatedShares | undefined;
+          
+          if (i === this.config.partyId) {
+            // Get my own shares from session manager
+            shares = this.sessionManager.getShares(session.id, `capacity_${i}`);
+          } else {
+            // Get other parties' shares from receivedShares
+            const intentShares = this.receivedShares.get(intent.id);
+            if (intentShares) {
+              shares = intentShares.get(i);
+            }
+          }
+          
+          if (shares) {
+            // Request reconstruction
+            const capacity = await this.reconstructValue(intent.id, `capacity_${i}`, shares);
+            capacities.push(capacity);
+          } else {
+            console.log(`⚠️  No shares found for capacity_${i}, assuming 0 capacity`);
+            capacities.push(0n);
+          }
         }
+        
+        allocations = this.protocols.computeAllocations(capacities, intent.minAmountOut);
       }
       
-      const allocations = this.protocols.computeAllocations(capacities, intent.amountIn);
       const myAllocation = allocations[this.config.partyId];
-      
       console.log(`My allocation: ${myAllocation.amount}`);
       this.pendingAllocations.set(intent.id, myAllocation);
       
-      // Step 7: Sign settlement
-      console.log('Step 7: Signing settlement...');
+      // Step 7: Approve tokenOut for settlement (each node approves its own allocation)
+      if (myAllocation.amount > 0n && this.uniswapManager) {
+        console.log(`Approving ${myAllocation.amount} of ${intent.tokenOut} for Settlement contract...`);
+        await this.uniswapManager.ensureApproval(
+          intent.tokenOut as Address,
+          this.settlementManager.getSettlementAddress(),
+          myAllocation.amount
+        );
+      }
+      
+      // Step 8: Sign settlement
+      console.log('Step 8: Signing settlement...');
       const myBlockchainAddress = privateKeyToAccount(this.config.privateKey).address;
       const signature = await this.settlementManager.signSettlement(
         intent.id,
@@ -372,20 +515,20 @@ export class MPCServer {
       }
       this.pendingSignatures.get(intent.id)!.push(settlementSig);
       
-      // Step 8: Exchange signatures
-      console.log('Step 8: Broadcasting signature...');
+      // Step 9: Exchange signatures
+      console.log('Step 9: Broadcasting signature...');
       await this.broadcastSignature(session.id, settlementSig);
       
       // Wait for all signatures
-      console.log('Step 9: Waiting for all signatures...');
+      console.log('Step 10: Waiting for all signatures...');
       await this.waitForAllSignatures(intent.id, parties.length);
       
-      // Step 10: Submit settlement (if I'm the leader)
+      // Step 11: Submit settlement (if I'm the leader)
       if (this.config.partyId === 0) {
-        console.log('Step 10: Submitting settlement (I am leader)...');
+        console.log('Step 11: Submitting settlement (I am leader)...');
         await this.submitSettlement(intent.id, allocations);
       } else {
-        console.log('Step 10: Waiting for leader to submit settlement...');
+        console.log('Step 11: Waiting for leader to submit settlement...');
         // Non-leader parties don't submit, but still need to clean up
       }
       
@@ -453,7 +596,12 @@ export class MPCServer {
       this.receivedShares.set(intentId, new Map());
     }
     
-    const receivedShares = shares[this.config.partyId];
+    const receivedShares = shares[fromParty];
+    if (!receivedShares) {
+      console.warn(`⚠️  No shares found in payload from party ${fromParty} for intent ${intentId}`);
+      return;
+    }
+    
     // In replicated SS, we receive both shares that this party should hold
     this.receivedShares.get(intentId)!.set(fromParty, receivedShares);
     
@@ -493,10 +641,12 @@ export class MPCServer {
   private async exchangeSharesForSum(
     intentId: IntentId,
     myShares: ReplicatedShares
-  ): Promise<ReplicatedShares[]> {
-    // Clear any previous shares for this intent to avoid reusing capacity shares
-    // The capacity shares have already been stored in the session manager
-    this.receivedShares.set(intentId, new Map());
+  ): Promise<PartyShares[]> {
+    // Initialize a dedicated map for computation round shares if it doesn't exist
+    // Keep this separate from capacity shares to avoid overwriting them.
+    if (!this.computationShares.has(intentId)) {
+      this.computationShares.set(intentId, new Map());
+    }
     
     // Broadcast my shares
     for (let partyId = 0; partyId < this.config.allParties.length; partyId++) {
@@ -519,22 +669,25 @@ export class MPCServer {
     const startTime = Date.now();
     
     while (Date.now() - startTime < timeout) {
-      const intentShares = this.receivedShares.get(intentId)!;
+      const intentShares = this.computationShares.get(intentId);
       
-      // Check if we have all shares
-      if (intentShares.size >= expectedParties) {
+      // Check if intentShares exists and has all expected parties
+      if (intentShares && intentShares.size >= expectedParties) {
         // Collect shares from all other parties
-        const collectedShares: ReplicatedShares[] = [];
+        const collectedShares: PartyShares[] = [];
         for (let partyId = 0; partyId < this.config.allParties.length; partyId++) {
           if (partyId === this.config.partyId) continue;
           
           const shares = intentShares.get(partyId);
           if (shares) {
-            collectedShares.push(shares);
+            collectedShares.push({ partyId, shares });
           }
         }
         
-        return collectedShares;
+        // Double-check we have all shares before returning
+        if (collectedShares.length >= expectedParties) {
+          return collectedShares;
+        }
       }
       
       // Wait a bit before checking again
@@ -555,11 +708,11 @@ export class MPCServer {
     console.log(`Received computation round ${msg.payload.round} from party ${fromParty}`);
     
     // Store received shares
-    if (!this.receivedShares.has(intentId)) {
-      this.receivedShares.set(intentId, new Map());
+    if (!this.computationShares.has(intentId)) {
+      this.computationShares.set(intentId, new Map());
     }
     
-    const intentShares = this.receivedShares.get(intentId)!;
+    const intentShares = this.computationShares.get(intentId)!;
     intentShares.set(fromParty, shares);
   }
   
@@ -578,26 +731,39 @@ export class MPCServer {
       throw new Error(`No session found for intent ${intentId}`);
     }
     
-    // Request shares from the next party in the ring
-    const nextParty = (this.config.partyId + 1) % this.config.allParties.length;
+    // Determine which party to request from based on the variable name
+    // For capacity_X, request from party X (the owner of those shares)
+    let targetParty: number;
+    const capacityMatch = variable.match(/^capacity_(\d+)$/);
+    if (capacityMatch) {
+      targetParty = parseInt(capacityMatch[1]);
+    } else {
+      // For other variables, use next party in ring
+      targetParty = (this.config.partyId + 1) % this.config.allParties.length;
+    }
     
-    console.log(`Requesting shares for ${variable} from party ${nextParty}`);
+    // Don't request shares from myself
+    if (targetParty === this.config.partyId) {
+      targetParty = (this.config.partyId + 1) % this.config.allParties.length;
+    }
+    
+    console.log(`Requesting shares for ${variable} from party ${targetParty}`);
     
     // Send reconstruction request with the actual session ID
     await this.network.sendToParty(
-      nextParty,
-      MessageBuilder.reconstructionRequest(session.id, nextParty, variable)
+      targetParty,
+      MessageBuilder.reconstructionRequest(session.id, targetParty, variable)
     );
     
     // Wait for response - use session.id to match the key used in storage
-    const otherPartyShares = await this.waitForReconstructionResponse(session.id, variable, nextParty);
+    const otherPartyShares = await this.waitForReconstructionResponse(session.id, variable, targetParty);
     
     // Reconstruct using shares from both parties
     const reconstructed = reconstructFromTwoParties(
       myShares,
       otherPartyShares,
       this.config.partyId,
-      nextParty
+      targetParty
     );
     
     console.log(`Reconstructed ${variable}: ${reconstructed}`);
@@ -608,17 +774,26 @@ export class MPCServer {
    * Handle reconstruction request
    */
   private async handleReconstructionRequest(msg: P2PMessage): Promise<void> {
+    console.log(`Received RECONSTRUCTION_REQUEST from party ${msg.from} for variable ${msg.payload.variable}`);
     const { variable } = msg.payload;
     const session = this.sessionManager.getSession(msg.sessionId);
     
+    console.log(`  Session found: ${!!session}`);
     if (session) {
       const shares = this.sessionManager.getShares(session.id, variable);
+      console.log(`  Shares found for ${variable}: ${!!shares}`);
       if (shares) {
+        console.log(`  Sending reconstruction response to party ${msg.from}...`);
         await this.network.sendToParty(
           msg.from,
           MessageBuilder.reconstructionResponse(msg.sessionId, msg.from, variable, shares)
         );
+        console.log(`  ✅ Sent reconstruction response`);
+      } else {
+        console.log(`  ❌ No shares found for variable ${variable}`);
       }
+    } else {
+      console.log(`  ❌ No session found for ${msg.sessionId}`);
     }
   }
   
@@ -749,6 +924,7 @@ export class MPCServer {
     this.pendingAllocations.delete(intentId);
     this.pendingSignatures.delete(intentId);
     this.receivedShares.delete(intentId);
+    this.computationShares.delete(intentId);
     
     // Delete all reconstruction responses for sessions related to this intent
     // Session IDs have format: ${intentId}-${random}
@@ -770,7 +946,28 @@ export class MPCServer {
       throw new Error('No signatures available');
     }
     
+    // Get intent to know which tokens to approve
+    const intent = this.activeIntents.get(intentId);
+    if (!intent) {
+      throw new Error('Intent not found');
+    }
+    
     try {
+      // Approve tokenOut for Settlement contract before submitting
+      // Each node needs to approve their output amount
+      const myAllocation = allocations.find(a => a.partyId === this.config.partyId);
+      if (myAllocation && myAllocation.amount > 0n) {
+        console.log(`Approving ${myAllocation.amount} of ${intent.tokenOut} for Settlement contract...`);
+        
+        if (this.uniswapManager) {
+          await this.uniswapManager.ensureApproval(
+            intent.tokenOut as Address,
+            this.settlementManager.getSettlementAddress(),
+            myAllocation.amount
+          );
+        }
+      }
+      
       const hash = await this.settlementManager.submitSettlement(
         intentId,
         allocations,

@@ -28,12 +28,21 @@ type SettlementManagerConfig = {
 };
 
 /**
- * Settlement contract ABI
+ * Settlement contract ABI - matches Settlement.sol
  */
 const SETTLEMENT_ABI = parseAbi([
-  'function batchFillIntent(bytes32 intentId, address[] calldata servers, uint256[] calldata amounts, bytes[] calldata signatures) external',
+  // View functions
   'function getIntentStatus(bytes32 intentId) external view returns (uint8)',
-  'event IntentFilled(bytes32 indexed intentId, uint256 totalAmount, uint256 numServers)',
+  'function isNodeRegistered(address node) external view returns (bool)',
+  'function getRegisteredNodes() external view returns (address[])',
+  'function getNodeCount() external view returns (uint256)',
+  // Write functions
+  'function batchFillIntent(bytes32 intentId, address[] calldata nodes, uint256[] calldata amounts, bytes[] calldata signatures) external',
+  'function registerNode(address node) external',
+  // Events
+  'event IntentCreated(bytes32 indexed intentId, address indexed user, address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline)',
+  'event IntentFilled(bytes32 indexed intentId, uint256 totalAmountOut, uint256 numNodes)',
+  'event NodeRegistered(address indexed node)',
 ]);
 
 /**
@@ -115,19 +124,28 @@ export class SettlementManager {
     console.log('Submitting settlement for intent:', intentId);
     console.log('Allocations:', allocations);
     
+    // Filter out zero-amount allocations (contract rejects amount == 0)
+    const nonZeroAllocations = allocations.filter((a) => a.amount > 0n);
+    const nonZeroParties = new Set(nonZeroAllocations.map((a) => a.partyId));
+    const nonZeroSignatures = signatures.filter((s) => nonZeroParties.has(s.partyId));
+    
+    if (nonZeroAllocations.length === 0) {
+      throw new Error('No non-zero allocations to submit');
+    }
+    
     // Verify we have all signatures
-    if (signatures.length !== allocations.length) {
+    if (nonZeroSignatures.length !== nonZeroAllocations.length) {
       throw new Error('Mismatch between allocations and signatures');
     }
     
     // Create a map of signatures by party ID for correct pairing
     const signaturesByParty = new Map<number, SettlementSignature>();
-    for (const sig of signatures) {
+    for (const sig of nonZeroSignatures) {
       signaturesByParty.set(sig.partyId, sig);
     }
     
     // Pair each allocation with its corresponding signature by party ID
-    const paired = allocations.map((alloc) => {
+    const paired = nonZeroAllocations.map((alloc) => {
       const sig = signaturesByParty.get(alloc.partyId);
       if (!sig) {
         throw new Error(`Missing signature for party ${alloc.partyId}`);
@@ -238,6 +256,39 @@ export class SettlementManager {
       throw new Error(`No blockchain address configured for party ${partyId}`);
     }
     return address;
+  }
+  
+  /**
+   * Check if node is registered with Settlement contract
+   */
+  async isNodeRegistered(nodeAddress: Address): Promise<boolean> {
+    try {
+      const registered = await (this.publicClient.readContract as any)({
+        address: this.settlementAddress,
+        abi: SETTLEMENT_ABI,
+        functionName: 'isNodeRegistered',
+        args: [nodeAddress],
+      });
+      
+      return registered as boolean;
+    } catch (error) {
+      console.error('Error checking node registration:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Get the node's wallet address
+   */
+  getNodeAddress(): Address {
+    return this.account.address;
+  }
+  
+  /**
+   * Get the settlement contract address
+   */
+  getSettlementAddress(): Address {
+    return this.settlementAddress;
   }
   
   /**
