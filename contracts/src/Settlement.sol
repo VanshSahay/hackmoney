@@ -194,6 +194,12 @@ contract Settlement is ReentrancyGuard, Ownable {
         require(nodes.length == signatures.length, "Signature length mismatch");
         require(nodes.length >= minNodesRequired, "Insufficient nodes");
 
+        for (uint256 i = 0; i < nodes.length; i++) {
+            for (uint256 j = i + 1; j < nodes.length; j++) {
+                require(nodes[i] != nodes[j], "Duplicate node");
+            }
+        }
+
         // Calculate total output amount
         uint256 totalAmountOut = 0;
         for (uint256 i = 0; i < amounts.length; i++) {

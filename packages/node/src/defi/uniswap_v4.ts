@@ -284,10 +284,13 @@ export class UniswapV4Manager {
       hookData: '0x',
     };
     
+    const tokenInCurrency = zeroForOne ? poolKey.currency0 : poolKey.currency1;
+    const tokenOutCurrency = zeroForOne ? poolKey.currency1 : poolKey.currency0;
+    
     const v4Planner = new V4Planner();
     v4Planner.addAction(Actions.SWAP_EXACT_IN_SINGLE, [swapConfig]);
-    v4Planner.addAction(Actions.SETTLE_ALL, [swapConfig.poolKey.currency0, swapConfig.amountIn]);
-    v4Planner.addAction(Actions.TAKE_ALL, [swapConfig.poolKey.currency1, swapConfig.amountOutMinimum]);
+    v4Planner.addAction(Actions.SETTLE_ALL, [tokenInCurrency, swapConfig.amountIn]);
+    v4Planner.addAction(Actions.TAKE_ALL, [tokenOutCurrency, swapConfig.amountOutMinimum]);
     
     const encodedActions = v4Planner.finalize();
     const routePlanner = new RoutePlanner();

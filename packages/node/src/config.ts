@@ -4,6 +4,9 @@
  */
 
 import { config as dotenvConfig } from 'dotenv';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import type { PartyConfig } from './types.js';
 import type { Address, Hash } from 'viem';
 import { getOrCreateWallet, type WalletInfo } from './utils/wallet.js';
@@ -163,10 +166,6 @@ function buildPeerConfig(
  */
 function loadPeerWallet(nodeName: string): { address: Address } | null {
   try {
-    const { existsSync, readFileSync } = require('fs');
-    const { join } = require('path');
-    const { homedir } = require('os');
-    
     const safeName = nodeName.replace(/[^a-zA-Z0-9.-]/g, '_');
     const walletPath = join(homedir(), '.mpc-node', 'wallets', `${safeName}.json`);
     
