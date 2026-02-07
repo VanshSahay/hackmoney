@@ -130,8 +130,42 @@ async function main() {
       console.log('\n✅ The MPC nodes should now detect this intent and start the protocol!');
       console.log('   Check the node logs to see them processing the intent.');
     }
-  } catch (error) {
-    console.error('❌ Error creating intent:', error);
+  } catch (error: any) {
+    console.error('❌ Error creating intent:', error.shortMessage || error.message);
+    
+    // Check if it's a token balance issue
+    const wethBalance = await publicClient.readContract({
+      address: WETH_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [account.address],
+    });
+    console.log('\n💡 Debug info:');
+    console.log('  WETH balance:', wethBalance.toString(), 'wei');
+    console.log('  Needed:', amountIn.toString(), 'wei');
+    
+    const allowance = await publicClient.readContract({
+      address: WETH_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: 'allowance',
+      args: [account.address, SETTLEMENT_ADDRESS],
+    });
+    console.log('  Allowance:', allowance.toString(), 'wei');
+    
+    if (wethBalance < amountIn) {
+      console.log('\n❌ Insufficient WETH balance!');
+    }
+    if (allowance < amountIn) {
+      console.log('\n❌ Insufficient allowance! Re-approving...');
+      const approveHash = await walletClient.writeContract({
+        address: WETH_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [SETTLEMENT_ADDRESS, parseEther('10')],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      console.log('✅ Re-approved. Please run the script again.');
+    }
   }
 }
 

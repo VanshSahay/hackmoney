@@ -13,9 +13,9 @@ import type {
   ReplicatedShares,
   ServerCapacity,
   MPCResult,
-  MessageType,
   P2PMessage,
 } from './types.js';
+import { MessageType } from './types.js';
 import { MPCSessionManager } from './mpc/session.js';
 import { MPCProtocols } from './mpc/protocols.js';
 import { P2PNetwork, MessageBuilder } from './network/p2p.js';
@@ -235,17 +235,17 @@ export class MPCServer {
     });
     
     // Handle reconstruction requests
-    this.network.onMessage('RECONSTRUCTION_REQUEST' as MessageType, async (msg: P2PMessage) => {
+    this.network.onMessage(MessageType.RECONSTRUCTION_REQUEST, async (msg: P2PMessage) => {
       await this.handleReconstructionRequest(msg);
     });
     
     // Handle reconstruction responses
-    this.network.onMessage('RECONSTRUCTION_RESPONSE' as MessageType, async (msg: P2PMessage) => {
+    this.network.onMessage(MessageType.RECONSTRUCTION_RESPONSE, async (msg: P2PMessage) => {
       await this.handleReconstructionResponse(msg);
     });
     
     // Handle settlement signatures
-    this.network.onMessage('SETTLEMENT_SIGNATURE' as MessageType, async (msg: P2PMessage) => {
+    this.network.onMessage(MessageType.SETTLEMENT_SIGNATURE, async (msg: P2PMessage) => {
       await this.handleSettlementSignature(msg);
     });
   }
@@ -392,21 +392,47 @@ export class MPCServer {
       // Step 6: Compute allocations
       console.log('Step 6: Computing allocations...');
       
-      // For simplicity, we reveal capacities to compute allocations
-      // In a fully private system, this would use secure division
-      const capacities: bigint[] = [];
-      for (let i = 0; i < parties.length; i++) {
-        const shares = this.sessionManager.getShares(session.id, `capacity_${i}`);
-        if (shares) {
-          // Request reconstruction from other parties
-          const capacity = await this.reconstructValue(intent.id, `capacity_${i}`, shares);
-          capacities.push(capacity);
+      let allocations: Array<{ partyId: number; amount: bigint }>;
+      
+      // If my capacity is 0, all allocations will be 0 (optimization)
+      if (myCapacity === 0n) {
+        console.log('My capacity is 0, skipping reconstruction (zero allocation)');
+        allocations = parties.map((_, i) => ({
+          partyId: i,
+          amount: 0n,
+        }));
+      } else {
+        // For simplicity, we reveal capacities to compute allocations
+        // In a fully private system, this would use secure division
+        const capacities: bigint[] = [];
+        for (let i = 0; i < parties.length; i++) {
+          let shares: ReplicatedShares | undefined;
+          
+          if (i === this.config.partyId) {
+            // Get my own shares from session manager
+            shares = this.sessionManager.getShares(session.id, `capacity_${i}`);
+          } else {
+            // Get other parties' shares from receivedShares
+            const intentShares = this.receivedShares.get(intent.id);
+            if (intentShares) {
+              shares = intentShares.get(i);
+            }
+          }
+          
+          if (shares) {
+            // Request reconstruction
+            const capacity = await this.reconstructValue(intent.id, `capacity_${i}`, shares);
+            capacities.push(capacity);
+          } else {
+            console.log(`⚠️  No shares found for capacity_${i}, assuming 0 capacity`);
+            capacities.push(0n);
+          }
         }
+        
+        allocations = this.protocols.computeAllocations(capacities, intent.amountIn);
       }
       
-      const allocations = this.protocols.computeAllocations(capacities, intent.amountIn);
       const myAllocation = allocations[this.config.partyId];
-      
       console.log(`My allocation: ${myAllocation.amount}`);
       this.pendingAllocations.set(intent.id, myAllocation);
       
@@ -638,26 +664,34 @@ export class MPCServer {
       throw new Error(`No session found for intent ${intentId}`);
     }
     
-    // Request shares from the next party in the ring
-    const nextParty = (this.config.partyId + 1) % this.config.allParties.length;
+    // Determine which party to request from based on the variable name
+    // For capacity_X, request from party X (the owner of those shares)
+    let targetParty: number;
+    const capacityMatch = variable.match(/^capacity_(\d+)$/);
+    if (capacityMatch) {
+      targetParty = parseInt(capacityMatch[1]);
+    } else {
+      // For other variables, use next party in ring
+      targetParty = (this.config.partyId + 1) % this.config.allParties.length;
+    }
     
-    console.log(`Requesting shares for ${variable} from party ${nextParty}`);
+    console.log(`Requesting shares for ${variable} from party ${targetParty}`);
     
     // Send reconstruction request with the actual session ID
     await this.network.sendToParty(
-      nextParty,
-      MessageBuilder.reconstructionRequest(session.id, nextParty, variable)
+      targetParty,
+      MessageBuilder.reconstructionRequest(session.id, targetParty, variable)
     );
     
     // Wait for response - use session.id to match the key used in storage
-    const otherPartyShares = await this.waitForReconstructionResponse(session.id, variable, nextParty);
+    const otherPartyShares = await this.waitForReconstructionResponse(session.id, variable, targetParty);
     
     // Reconstruct using shares from both parties
     const reconstructed = reconstructFromTwoParties(
       myShares,
       otherPartyShares,
       this.config.partyId,
-      nextParty
+      targetParty
     );
     
     console.log(`Reconstructed ${variable}: ${reconstructed}`);
@@ -668,17 +702,26 @@ export class MPCServer {
    * Handle reconstruction request
    */
   private async handleReconstructionRequest(msg: P2PMessage): Promise<void> {
+    console.log(`Received RECONSTRUCTION_REQUEST from party ${msg.from} for variable ${msg.payload.variable}`);
     const { variable } = msg.payload;
     const session = this.sessionManager.getSession(msg.sessionId);
     
+    console.log(`  Session found: ${!!session}`);
     if (session) {
       const shares = this.sessionManager.getShares(session.id, variable);
+      console.log(`  Shares found for ${variable}: ${!!shares}`);
       if (shares) {
+        console.log(`  Sending reconstruction response to party ${msg.from}...`);
         await this.network.sendToParty(
           msg.from,
           MessageBuilder.reconstructionResponse(msg.sessionId, msg.from, variable, shares)
         );
+        console.log(`  ✅ Sent reconstruction response`);
+      } else {
+        console.log(`  ❌ No shares found for variable ${variable}`);
       }
+    } else {
+      console.log(`  ❌ No session found for ${msg.sessionId}`);
     }
   }
   

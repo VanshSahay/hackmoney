@@ -64,13 +64,13 @@ Connections: 2/2
 💡 Press Ctrl+C to stop
 
 IntentCreated event: {
-  intentId: '0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d',
+  intentId: '0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80',
   user: '0x89fEdB2167197199Fd069122e5351A1C779F91B8',
   amountIn: '1000000000000000'
 }
 
 === New Intent Created ===
-Intent ID: 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
+Intent ID: 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
 Amount In: 1000000000000000
 Token In: 0x4200000000000000000000000000000000000006
 Token Out: 0x0000000000000000000000000000000000000001
@@ -79,8 +79,6 @@ No capacity for 0x4200000000000000000000000000000000000006, attempting to swap f
 🎯 Attempting to fulfill requirement:
   Token: 0x4200000000000000000000000000000000000006
   Amount: 333333333333333
-Received SHARE_DISTRIBUTION from party 1
-Received shares from party 1 for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
   ❌ No suitable source token found for swapping
 ❌ Could not swap to obtain 0x4200000000000000000000000000000000000006
 No capacity for this token, participating with 0...
@@ -90,21 +88,24 @@ Step 1: Secret sharing capacity...
 Step 2: Distributing shares...
 Step 3: Waiting for shares from other parties...
 Received SHARE_DISTRIBUTION from party 0
-Received shares from party 0 for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
+Received shares from party 0 for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
+Received SHARE_DISTRIBUTION from party 1
+Received shares from party 1 for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
+Received COMPUTATION_ROUND from party 0
+Received computation round 1 from party 0
 Received COMPUTATION_ROUND from party 1
 Received computation round 1 from party 1
 Step 4: Computing total capacity (on shares)...
 Step 5: Checking sufficient capacity...
-Received COMPUTATION_ROUND from party 0
-Received computation round 1 from party 0
-Received RECONSTRUCTION_REQUEST from party 1
-Error in MPC protocol: Error: Timeout waiting for shares from other parties for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
-    at MPCServer.exchangeSharesForSum (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:430:15)
-    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:269:24
+Received SETTLEMENT_SIGNATURE from party 0
+Received settlement signature from party 0
+Error in MPC protocol: Error: Timeout waiting for shares from other parties for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
+    at MPCServer.exchangeSharesForSum (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:457:15)
+    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:270:24
     at async MPCProtocols.checkSufficientCapacity (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/mpc/protocols.js:43:32)
-    at async MPCServer.runMPCProtocol (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:267:32)
-    at async MPCServer.handleIntentCreated (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:222:9)
-    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:176:13
+    at async MPCServer.runMPCProtocol (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:268:32)
+    at async MPCServer.handleIntentCreated (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:223:9)
+    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:177:13
     at async BlockchainEventListener.handleIntentCreated (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/blockchain/events.js:100:17)
     at async onLogs (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/blockchain/events.js:65:25)
-Cleaned up state for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
+Cleaned up state for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80

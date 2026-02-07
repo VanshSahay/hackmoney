@@ -116,13 +116,13 @@ Incoming connection from: 127.0.0.1
 Identified incoming connection as party 2
 Received HANDSHAKE_RESPONSE from party 2
 IntentCreated event: {
-  intentId: '0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d',
+  intentId: '0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80',
   user: '0x89fEdB2167197199Fd069122e5351A1C779F91B8',
   amountIn: '1000000000000000'
 }
 
 === New Intent Created ===
-Intent ID: 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
+Intent ID: 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
 Amount In: 1000000000000000
 Token In: 0x4200000000000000000000000000000000000006
 Token Out: 0x0000000000000000000000000000000000000001
@@ -131,8 +131,6 @@ No capacity for 0x4200000000000000000000000000000000000006, attempting to swap f
 🎯 Attempting to fulfill requirement:
   Token: 0x4200000000000000000000000000000000000006
   Amount: 333333333333333
-Received SHARE_DISTRIBUTION from party 1
-Received shares from party 1 for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
   ❌ No suitable source token found for swapping
 ❌ Could not swap to obtain 0x4200000000000000000000000000000000000006
 No capacity for this token, participating with 0...
@@ -141,21 +139,31 @@ No capacity for this token, participating with 0...
 Step 1: Secret sharing capacity...
 Step 2: Distributing shares...
 Step 3: Waiting for shares from other parties...
+Received SHARE_DISTRIBUTION from party 1
+Received shares from party 1 for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
 Received SHARE_DISTRIBUTION from party 2
-Received shares from party 2 for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
-Received COMPUTATION_ROUND from party 1
-Received computation round 1 from party 1
+Received shares from party 2 for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80
 Step 4: Computing total capacity (on shares)...
 Step 5: Checking sufficient capacity...
+Received COMPUTATION_ROUND from party 1
+Received computation round 1 from party 1
 Received COMPUTATION_ROUND from party 2
 Received computation round 1 from party 2
-Error in MPC protocol: Error: Timeout waiting for shares from other parties for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
-    at MPCServer.exchangeSharesForSum (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:430:15)
-    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:269:24
-    at async MPCProtocols.checkSufficientCapacity (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/mpc/protocols.js:43:32)
-    at async MPCServer.runMPCProtocol (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:267:32)
-    at async MPCServer.handleIntentCreated (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:222:9)
-    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:176:13
+Warning: Got 6 unique shares instead of expected 3
+Share counts: 57273119094834598091387775697731005801239710793438018741957323017459698724681: 1, 110349803512835962225982227505050658126262795256935391498905493734131790511075: 1, 88072717088982393639207411124561991839108119511434302037570248807654458601705: 1, 108620970515541069676972897928462365609624938749560533502447231068762834183839: 1, 50776562984656273548084937375899836448789680220370134595945102451879348385561: 1, 31349340652016720930847967683788257373339521256167985119873724597856592477559: 1
+Shares not replicated (all parties likely have 0 capacity), reconstructing by direct sum
+Sufficient capacity: true
+Step 6: Computing allocations...
+My capacity is 0, skipping reconstruction (zero allocation)
+My allocation: 0
+Step 7: Signing settlement...
+Step 8: Broadcasting signature...
+Step 9: Waiting for all signatures...
+Error in MPC protocol: Error: Timeout waiting for signatures
+    at MPCServer.waitForAllSignatures (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:610:15)
+    at async MPCServer.runMPCProtocol (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:342:13)
+    at async MPCServer.handleIntentCreated (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:223:9)
+    at async file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/server.js:177:13
     at async BlockchainEventListener.handleIntentCreated (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/blockchain/events.js:100:17)
     at async onLogs (file:///Users/vanshsahay/coding/projects/hack-money/packages/node/dist/blockchain/events.js:65:25)
-Cleaned up state for intent 0x953a61fe9c1f745828942c30caa2081c3702931c142417508c906e8bc76e2c5d
+Cleaned up state for intent 0x8cd16326e860dea0624fdcae2c2c614dabf3fad2d37824400e8a14bdfad58c80

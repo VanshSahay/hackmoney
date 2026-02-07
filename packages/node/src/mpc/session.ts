@@ -128,8 +128,9 @@ export class MPCSessionManager {
    * Generate a unique session ID
    */
   private generateSessionId(intentId: IntentId): string {
-    const random = randomFieldElement().toString(16).slice(0, 8);
-    return `${intentId}-${random}`;
+    // Use the intentId directly as the session ID to ensure all parties
+    // have the same session ID for the same intent
+    return intentId;
   }
   
   /**

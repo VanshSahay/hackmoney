@@ -431,7 +431,7 @@ export class MessageBuilder {
     shares: { [partyId: number]: ReplicatedShares }
   ): Omit<P2PMessage, 'from' | 'timestamp'> {
     return {
-      type: 'SHARE_DISTRIBUTION' as MessageType,
+      type: MessageType.SHARE_DISTRIBUTION,
       to,
       sessionId,
       payload: { intentId, shares },
@@ -445,7 +445,7 @@ export class MessageBuilder {
     data: any
   ): Omit<P2PMessage, 'from' | 'timestamp'> {
     return {
-      type: 'COMPUTATION_ROUND' as MessageType,
+      type: MessageType.COMPUTATION_ROUND,
       to,
       sessionId,
       payload: { round, data },
@@ -458,7 +458,7 @@ export class MessageBuilder {
     variable: string
   ): Omit<P2PMessage, 'from' | 'timestamp'> {
     return {
-      type: 'RECONSTRUCTION_REQUEST' as MessageType,
+      type: MessageType.RECONSTRUCTION_REQUEST,
       to,
       sessionId,
       payload: { variable },
@@ -472,7 +472,7 @@ export class MessageBuilder {
     shares: ReplicatedShares
   ): Omit<P2PMessage, 'from' | 'timestamp'> {
     return {
-      type: 'RECONSTRUCTION_RESPONSE' as MessageType,
+      type: MessageType.RECONSTRUCTION_RESPONSE,
       to,
       sessionId,
       payload: { variable, shares },
@@ -487,7 +487,7 @@ export class MessageBuilder {
     signature: string
   ): Omit<P2PMessage, 'from' | 'timestamp'> {
     return {
-      type: 'SETTLEMENT_SIGNATURE' as MessageType,
+      type: MessageType.SETTLEMENT_SIGNATURE,
       to,
       sessionId,
       payload: { intentId, amount: amount.toString(), signature },
