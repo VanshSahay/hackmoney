@@ -1,86 +1,55 @@
 import { LpStats } from "#/components/lp/lp-stats"
 import { LpTable } from "#/components/lp/lp-table"
 import { RecentSettlements } from "#/components/lp/recent-settlements"
+import { getIntentStats, getLpStats } from "#/lib/lp-data"
 
-// Mock data for demo — replace with on-chain reads when contracts deploy
-const MOCK_STATS = {
-	totalIntents: 142,
-	totalFilled: 128,
-	fillRate: 90.1,
-	avgSettlementTime: "7.2s",
-}
+// Revalidate every 30 seconds
+export const revalidate = 30
 
-const MOCK_SERVERS = [
-	{
-		address: "0x1234567890abcdef1234567890abcdef12345678",
-		settlements: 48,
-		online: true,
-	},
-	{
-		address: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-		settlements: 41,
-		online: true,
-	},
-	{
-		address: "0x9876543210fedcba9876543210fedcba98765432",
-		settlements: 39,
-		online: true,
-	},
-	{
-		address: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-		settlements: 12,
-		online: false,
-	},
-]
+export default async function LpPage() {
+	const [lpStats, intentStats] = await Promise.all([
+		getLpStats(),
+		getIntentStats(),
+	])
 
-const MOCK_SETTLEMENTS = [
-	{
-		intentId:
-			"0xabc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc1",
-		tokenIn: "USDC",
-		tokenOut: "ETH",
-		amountIn: "2,500",
-		amountOut: "1.0",
-		serverCount: 3,
-		timestamp: "2 min ago",
-	},
-	{
-		intentId:
-			"0xdef456def456def456def456def456def456def456def456def456def456def4",
-		tokenIn: "USDC",
-		tokenOut: "ETH",
-		amountIn: "5,000",
-		amountOut: "2.0",
-		serverCount: 3,
-		timestamp: "8 min ago",
-	},
-	{
-		intentId:
-			"0x789789789789789789789789789789789789789789789789789789789789789a",
-		tokenIn: "WETH",
-		tokenOut: "USDC",
-		amountIn: "0.5",
-		amountOut: "1,250",
-		serverCount: 2,
-		timestamp: "15 min ago",
-	},
-]
+	// Map registered nodes to server format
+	const servers = lpStats.registeredNodes.map((address) => ({
+		address,
+		settlements: 0, // We don't track per-node settlements on-chain yet
+		online: true, // Assume registered nodes are online
+	}))
 
-export default function LpPage() {
+	const stats = {
+		totalIntents: intentStats.totalIntents,
+		totalFilled: intentStats.filledIntents,
+		fillRate: intentStats.fillRate,
+		avgSettlementTime: "N/A", // Not tracked on-chain
+	}
+
+	// Recent settlements placeholder - would need event indexing for real data
+	const recentSettlements: {
+		intentId: string
+		tokenIn: string
+		tokenOut: string
+		amountIn: string
+		amountOut: string
+		serverCount: number
+		timestamp: string
+	}[] = []
+
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
 			<div>
 				<h1 className="text-2xl font-semibold tracking-tight">LP Servers</h1>
 				<p className="text-sm text-muted-foreground">
-					Publicly observable on-chain data. Individual capacities and
-					allocations remain private.
+					On-chain data from Base Sepolia. Node count: {lpStats.totalNodes}
 				</p>
 			</div>
 
-			<LpStats stats={MOCK_STATS} />
+			<LpStats stats={stats} />
 			<div className="grid gap-6 lg:grid-cols-2">
-				<LpTable servers={MOCK_SERVERS} />
-				<RecentSettlements settlements={MOCK_SETTLEMENTS} />
+				<LpTable servers={servers} />
+				<RecentSettlements settlements={recentSettlements} />
 			</div>
 		</div>
 	)
