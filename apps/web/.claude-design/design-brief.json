@@ -1,0 +1,37 @@
+{
+	"scope": "page",
+	"isRedesign": false,
+	"targetPath": "app/page.tsx",
+	"targetName": "SwapPage",
+	"painPoints": [
+		"Too generic/corporate",
+		"Dense/overwhelming",
+		"Dated visual style",
+		"Lacks delight"
+	],
+	"inspiration": {
+		"visual": ["Apple", "Gaming/Cyberpunk"],
+		"functional": ["Micro-interactions", "Smooth transitions"]
+	},
+	"brand": {
+		"adjectives": ["premium", "refined"],
+		"density": "spacious",
+		"darkMode": true
+	},
+	"persona": {
+		"primary": "DeFi power user",
+		"context": "both",
+		"keyTasks": [
+			"Execute swaps quickly",
+			"Track intent progress",
+			"View balances"
+		]
+	},
+	"constraints": {
+		"mustKeep": ["existing swap logic", "intent tracking"],
+		"technical": ["use existing shadcn components"]
+	},
+	"framework": "nextjs-app",
+	"packageManager": "pnpm",
+	"stylingSystem": "tailwind-v4"
+}
